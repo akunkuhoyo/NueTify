@@ -1,21 +1,33 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
+import { PwaRegister } from '@/components/PwaRegister';
 import './globals.css';
 
+export const viewport: Viewport = {
+  themeColor: '#000000',
+};
+
 export const metadata: Metadata = {
-  title: 'Sonara — Spatial Music',
+  title: 'NueTify',
+  applicationName: 'NueTify',
   description:
-    'iOS 27 Liquid Glass YouTube Music web client powered by ytmusic-api and Sonara recommendation & queue engine.',
+    'NueTify — 24/7 Spatial Music Streaming PWA powered by ytmusic-api.',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'NueTify',
+    statusBarStyle: 'black-translucent',
+  },
   openGraph: {
-    title: 'Sonara — Spatial Music',
+    title: 'NueTify',
     description:
-      'iOS 27 Liquid Glass YouTube Music web client powered by ytmusic-api and Sonara recommendation & queue engine.',
+      'NueTify — 24/7 Spatial Music Streaming PWA powered by ytmusic-api.',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Sonara — Spatial Music',
+    title: 'NueTify',
     description:
-      'iOS 27 Liquid Glass YouTube Music web client powered by ytmusic-api and Sonara recommendation & queue engine.',
+      'NueTify — 24/7 Spatial Music Streaming PWA powered by ytmusic-api.',
   },
 };
 
@@ -39,6 +51,7 @@ export default function RootLayout({
         className="min-h-screen bg-[var(--m3-bg)] text-[#1A1C20] dark:text-[#E6E8EE] selection:bg-[var(--m3-primary-soft)] selection:text-[var(--m3-primary)] transition-colors duration-200"
         suppressHydrationWarning
       >
+        <PwaRegister />
         {children}
       </body>
     </html>
