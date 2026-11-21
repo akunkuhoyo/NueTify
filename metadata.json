@@ -1,5 +1,5 @@
 {
-  "name": "Sonora — Spatial Music",
+  "name": "NueTify - Spatial Music",
   "description": "iOS 27 Liquid Glass YouTube Music web client powered by ytmusic-api and Metrolist recommendation & queue logic.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
