@@ -1,27 +1,5 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans, DM_Sans, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
-
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  variable: '--font-jakarta',
-  display: 'swap',
-});
-
-const dmSans = DM_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
-  variable: '--font-dm-sans',
-  display: 'swap',
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  variable: '--font-jetbrains',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: 'Sonara — Spatial Music',
@@ -49,7 +27,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${plusJakarta.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
+      className="dark"
+      style={{
+        ['--font-jakarta' as string]: '"Plus Jakarta Sans", system-ui, sans-serif',
+        ['--font-dm-sans' as string]: '"DM Sans", system-ui, sans-serif',
+        ['--font-jetbrains' as string]: '"JetBrains Mono", monospace',
+      }}
       suppressHydrationWarning
     >
       <body
