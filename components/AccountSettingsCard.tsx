@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Cloud, CloudOff, KeyRound, LogIn, LogOut, Save, Trash2 } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { UserAvatar } from './UserAvatar';
+import { VerifiedBadge, isVerifiedDeveloper } from './VerifiedBadge';
 
 export function AccountSettingsCard() {
   const {
@@ -115,7 +116,16 @@ export function AccountSettingsCard() {
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-bold text-white truncate">
               {profile?.display_name || 'Pengguna NueTify'}
+              {isVerifiedDeveloper({ userId: user.id, email: user.email }) && (
+                <VerifiedBadge size={16} />
+              )}
             </p>
+            {isVerifiedDeveloper({ userId: user.id, email: user.email }) && (
+              <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#E11D48]/15 text-[#FB7185] border border-[#E11D48]/30">
+                <VerifiedBadge size={12} />
+                Verified Developer
+              </span>
+            )}
             <p className="text-[12px] text-[#A7A7A7] truncate">{profile?.email}</p>
             <p className="text-[11px] text-[#C0C0C0] mt-1 flex items-center gap-1.5">
               <Cloud className="w-3.5 h-3.5 shrink-0" />
