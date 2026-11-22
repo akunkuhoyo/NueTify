@@ -98,7 +98,8 @@ export function NowPlayingSheet() {
   const remainingSec = Math.max(0, duration - currentTime);
   const artRadiusPx = settings.thumbnailCornerRadius ?? 24;
   const useExpressiveControls = settings.playerControlsStyle !== 'CLASSIC';
-
+  const upNextTrack = queueState?.queue?.[queueState.currentIndex + 1] ?? null;
+  
   return (
     <AnimatePresence>
       {isNowPlayingOpen && (
@@ -121,6 +122,7 @@ export function NowPlayingSheet() {
             theme={settings.theme}
           />
 
+            {currentTrack?.thumbnail && (<div className="absolute inset-0 overflow-hidden pointer-events-none z-0"><img src={currentTrack.thumbnail} alt="" className="w-full h-full object-cover scale-125 blur-3xl opacity-55 transition-all duration-700" /><div className="absolute inset-0 bg-black/55" /></div>)}
           {/* Sheet Top Bar (Zero horizontal clipping on narrow 320px-360px phones) */}
           <div className="relative z-10 shrink-0 px-3 sm:px-8 pt-3 sm:pt-4 pb-1.5 sm:pb-2 space-y-2 sm:space-y-0">
             <div className="flex items-center justify-between gap-2">
@@ -349,7 +351,8 @@ export function NowPlayingSheet() {
               <span>-{formatDuration(remainingSec)}</span>
                     </div>
                   </div>
-
+                {upNextTrack && (<button type="button" onClick={() => setNowPlayingTab('queue')} className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 transition-colors text-left">{upNextTrack.thumbnail && (<img src={upNextTrack.thumbnail} alt="" className="w-6 h-6 rounded-md object-cover shrink-0" />)}<span className="text-xs text-slate-300 truncate">Up next: {upNextTrack.artist} - {upNextTrack.title}</span></button>)}
+                  
                   {/* Primary Transport Controls: Expressive Elastic Morphing vs Classic */}
                   {useExpressiveControls ? (
                     <div
