@@ -1082,6 +1082,17 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrack, currentTime, duration, isPlaying]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const nativeBridge = (window as unknown as {
+      NueTifyNative?: { setEqualizer?: (bandsJson: string, bassBoost: boolean) => void };
+    }).NueTifyNative;
+    nativeBridge?.setEqualizer?.(
+      JSON.stringify(settings.equalizerBands ?? [0, 0, 0, 0, 0]),
+      Boolean(settings.bassBoostEnabled)
+    );
+  }, [settings.equalizerBands, settings.bassBoostEnabled, isPlaying]);
+
   // Handle Android native lockscreen notification actions
     useEffect(() => {
     const onNativeAction = (e: Event) => {
