@@ -1158,7 +1158,7 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
           if (wasPlaying) {
             setTimeout(() => {
               if (intendedPlayingRef.current) {
-                ytPlayerRef.current?.playVideo?.();
+                if (ytPlayerRef.current?.getPlayerState?.() !== 1) { ytPlayerRef.current?.playVideo?.(); }
                 setIsPlaying(true);
               }
             }, 180);
@@ -1171,7 +1171,7 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
           if (wasPlaying) {
             setTimeout(() => {
               if (intendedPlayingRef.current) {
-                ytPlayerRef.current?.playVideo?.();
+                if (ytPlayerRef.current?.getPlayerState?.() !== 1) { ytPlayerRef.current?.playVideo?.(); }
                 setIsPlaying(true);
               }
             }, 180);
