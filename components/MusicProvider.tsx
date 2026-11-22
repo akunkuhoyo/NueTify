@@ -1,4 +1,5 @@
 'use client';
+import { useAuth } from './AuthProvider';
 
 import React, {
   createContext,
@@ -240,7 +241,26 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [settings, setSettings] = useState<PlayerSettings>(DEFAULT_SETTINGS);
   const [playlistPickerTrack, setPlaylistPickerTrack] = useState<Track | null>(null);
-
+  const { user, cloudMusicData, cloudRevision, syncMusicData } = useAuth();
+  const skipCloudPushRef = useRef(false);
+  useEffect(() => {
+if (cloudRevision > 0 && cloudMusicData) {
+skipCloudPushRef.current = true;
+if (cloudMusicData.settings && typeof cloudMusicData.settings === 'object') setSettings({ ...DEFAULT_SETTINGS, ...cloudMusicData.settings });
+if (Array.isArray(cloudMusicData.playlists)) setPlaylists(cloudMusicData.playlists);
+if (Array.isArray(cloudMusicData.likedTracks)) setLikedTracks(cloudMusicData.likedTracks);
+if (Array.isArray(cloudMusicData.history)) setHistory(cloudMusicData.history);
+if (Array.isArray(cloudMusicData.searchHistory)) setSearchHistory(cloudMusicData.searchHistory);
+if (Array.isArray(cloudMusicData.savedCollection)) setSavedCollection(cloudMusicData.savedCollection);
+const timer = setTimeout(() => { skipCloudPushRef.current = false; }, 900);
+return () => clearTimeout(timer);
+}
+}, [cloudRevision, cloudMusicData]);
+  useEffect(() => {
+if (!user || !hydrated || skipCloudPushRef.current) return;
+syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedCollection });
+}, [user, hydrated, settings, playlists, likedTracks, history, searchHistory, savedCollection, syncMusicData]);
+  
   const [lyrics, setLyrics] = useState<LyricsPayload | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
