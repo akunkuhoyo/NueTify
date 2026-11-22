@@ -1,4 +1,6 @@
 'use client';
+import { useAuth } from './AuthProvider';
+import { UserAvatar } from './UserAvatar';
 
 import React from 'react';
 import {
@@ -31,7 +33,8 @@ export function Sidebar() {
     playlists,
     createPlaylist,
   } = useMusic();
-
+  const { profile, isGuest } = useAuth();
+  
   return (
     <aside
       aria-label="Primary navigation"
@@ -48,6 +51,7 @@ export function Sidebar() {
               <img src="/icon" alt="NueTify" className="w-8 h-8 rounded-lg object-cover shrink-0" />
             NueTify
           </button>
+<button type="button" onClick={() => setActiveTab('settings')} aria-label="Profil Pengguna"><UserAvatar src={profile?.avatar_url} name={profile?.display_name || (isGuest ? 'Tamu' : 'NueTify')} size={30} /></button>
         </div>
 
         {/* Main Navigation */}
