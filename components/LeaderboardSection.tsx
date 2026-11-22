@@ -35,6 +35,19 @@ export function LeaderboardSection() {
   const [showFull, setShowFull] = useState(false);
 
   const fetchTop50 = useCallback(async () => {
+    try {
+      const res = await fetch('/api/leaderboard', { cache: 'no-store' });
+      if (res.ok) {
+        const data = (await res.json()) as { entries?: LeaderboardEntry[] };
+        if (Array.isArray(data?.entries)) {
+          setEntries(data.entries);
+          setLoading(false);
+          return;
+        }
+      }
+    } catch {
+      // fallback ke query Supabase langsung
+    }
     const supabase = getSupabaseClient();
     if (!supabase) {
       setLoading(false);
@@ -114,22 +127,34 @@ export function LeaderboardSection() {
       String(user.user_metadata?.avatar_url || user.user_metadata?.picture || '');
 
     let cancelled = false;
-    void supabase
-      .from('listening_leaderboard')
-      .upsert(
-        {
-          user_id: user.id,
-          display_name: displayName,
-          avatar_url: avatarUrl,
-          total_seconds: Math.max(1, Math.floor(totalSec)),
-          total_plays: history.length,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      )
-      .then(() => {
+    const totalSeconds = Math.max(1, Math.floor(totalSec));
+    const totalPlays = history.length;
+
+    void (async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        if (!token || cancelled) return;
+
+        await fetch('/api/leaderboard', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            totalSeconds,
+            totalPlays,
+            displayName,
+            avatarUrl,
+          }),
+        });
+      } catch {
+        // ignore sync errors
+      } finally {
         if (!cancelled) void fetchTop50();
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
