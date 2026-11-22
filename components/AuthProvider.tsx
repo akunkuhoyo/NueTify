@@ -524,6 +524,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: user.email || '',
         updated_at: new Date().toISOString(),
       });
+      await supabase
+        .from('listening_leaderboard')
+        .update({
+          display_name: nextName,
+          avatar_url: nextAvatar,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
       return { ok: true, message: 'Profil berhasil diperbarui.' };
     },
     [profile, user]
@@ -557,6 +565,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setSyncStatus('error');
             return;
           }
+        const historyArr = Array.isArray(snapshot.history)
+          ? (snapshot.history as Array<{
+              durationListenedSec?: number;
+              track?: { duration?: number };
+            }>)
+          : [];
+        const totalPlays = historyArr.length;
+        const totalSeconds = historyArr.reduce(
+          (acc, ev) =>
+            acc + Number(ev?.durationListenedSec ?? ev?.track?.duration ?? 180),
+          0
+        );
+        await supabase.from('listening_leaderboard').upsert(
+          {
+            user_id: user.id,
+            display_name:
+              profile?.display_name ||
+              user.email?.split('@')[0] ||
+              'Pengguna NueTify',
+            avatar_url: profile?.avatar_url || '',
+            total_seconds: Math.max(0, Math.floor(totalSeconds)),
+            total_plays: totalPlays,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        );
           void mirrorToFirebaseFirestore(user.id, 'music_data', payloadWithTs);
           setSyncStatus('synced');
         } catch {
