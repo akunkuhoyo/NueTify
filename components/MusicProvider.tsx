@@ -524,7 +524,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
                   popupActive: popupModeRef.current !== 'off',
                   ytState: 'paused',
                 });
-                if (shouldRecover && bgRecoveryCountRef.current < 6) {
+                if (shouldRecover && bgRecoveryCountRef.current < 100000) {
                   bgRecoveryCountRef.current += 1;
                   try {
                     if (!isMutedRef.current) {
@@ -980,7 +980,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentTrack.title,
         artist: currentTrack.artist,
-        album: currentTrack.album?.name || 'Sonara Music',
+        album: currentTrack.album?.name || 'NueTify',
         artwork: currentTrack.thumbnail
           ? [
               { src: currentTrack.thumbnail, sizes: '256x256', type: 'image/jpeg' },
