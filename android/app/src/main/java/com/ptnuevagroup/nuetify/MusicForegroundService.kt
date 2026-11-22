@@ -24,6 +24,10 @@ import androidx.core.app.NotificationCompat
 import androidx.media.app.NotificationCompat.MediaStyle
 import java.net.URL
 import java.util.concurrent.Executors
+import android.net.Uri
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
+import org.json.JSONObject
 
 class MusicForegroundService : Service() {
 
@@ -55,6 +59,7 @@ class MusicForegroundService : Service() {
     private var focusRequest: AudioFocusRequest? = null
     private val executor = Executors.newSingleThreadExecutor()
 
+private val updateScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
     private var currentTitle = "NueTify"
     private var currentArtist = "PT Nueva Group"
     private var currentIsPlaying = false
@@ -75,11 +80,11 @@ class MusicForegroundService : Service() {
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
                     requestAudioFocus()
-                    onActionListener?.invoke("PLAY_PAUSE")
+                    onActionListener?.invoke("PLAY")
                 }
 
                 override fun onPause() {
-                    onActionListener?.invoke("PLAY_PAUSE")
+                    onActionListener?.invoke("PAUSE")
                 }
 
                 override fun onSkipToNext() {
@@ -111,6 +116,7 @@ class MusicForegroundService : Service() {
             setReferenceCounted(false)
             acquire()
         }
+        updateScheduler.scheduleAtFixedRate({ checkForAppUpdate() }, 1, 15, TimeUnit.MINUTES)
     }
 
     private fun requestAudioFocus() {
@@ -328,6 +334,77 @@ class MusicForegroundService : Service() {
         }
     }
 
+    private fun checkForAppUpdate() {
+        try {
+            val conn = java.net.URL("https://" + "nuetify.vercel.app/api/app-release").openConnection() as java.net.HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            if (conn.responseCode != 200) return
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            conn.disconnect()
+
+            val json = JSONObject(body)
+            val latestVer = json.optString("version", "").removePrefix("v").trim()
+            val downloadUrl = json.optString("downloadUrl", "").trim()
+            if (latestVer.isEmpty() || downloadUrl.isEmpty()) return
+
+            val currentVer = packageManager.getPackageInfo(packageName, 0).versionName?.removePrefix("v")?.trim() ?: return
+            if (latestVer == currentVer || !isNewerVersion(latestVer, currentVer)) return
+
+            val prefs = getSharedPreferences("nuetify_update_prefs", Context.MODE_PRIVATE)
+            if (prefs.getString("notified_version", "") == latestVer) return
+            prefs.edit().putString("notified_version", latestVer).apply()
+
+            val nm = getSystemService(NotificationManager::class.java)
+            val updateChannelId = "nuetify_updates_channel"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    updateChannelId,
+                    "NueTify Updates",
+                    NotificationManager.IMPORTANCE_DEFAULT
+                ).apply {
+                    description = "Notifikasi pembaruan aplikasi NueTify"
+                }
+                nm.createNotificationChannel(channel)
+            }
+
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl)).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                this,
+                1001,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val notification = NotificationCompat.Builder(this, updateChannelId)
+                .setSmallIcon(android.R.drawable.stat_sys_download_done)
+                .setContentTitle("Update NueTify Tersedia ($latestVer)")
+                .setContentText("Ketuk untuk mengunduh versi terbaru.")
+                .setContentIntent(pendingIntent)
+                .setAutoCancel(true)
+                .build()
+
+            nm.notify(1002, notification)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun isNewerVersion(latest: String, current: String): Boolean {
+        val lParts = latest.split(".").mapNotNull { it.toIntOrNull() }
+        val cParts = current.split(".").mapNotNull { it.toIntOrNull() }
+        val maxLen = maxOf(lParts.size, cParts.size)
+        for (i in 0 until maxLen) {
+            val l = lParts.getOrElse(i) { 0 }
+            val c = cParts.getOrElse(i) { 0 }
+            if (l > c) return true
+            if (l < c) return false
+        }
+        return false
+    }
+
     override fun onDestroy() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
@@ -336,6 +413,7 @@ class MusicForegroundService : Service() {
         mediaSession.isActive = false
         mediaSession.release()
         executor.shutdownNow()
+        updateScheduler.shutdownNow()
         super.onDestroy()
     }
 
