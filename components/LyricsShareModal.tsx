@@ -260,18 +260,40 @@ export function LyricsShareModal({ open, onClose }: LyricsShareModalProps) {
       ctx.font = '600 28px system-ui, -apple-system, sans-serif';
       ctx.fillText('NueTify', pad, canvas.height - pad);
 
-      const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
       const safeSlug = currentTrack.title
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .slice(0, 32);
-      link.download = `nuetify-lyrics-${safeSlug || 'card'}.png`;
-      link.href = dataUrl;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showToast('Lyrics card saved as PNG');
+     const nativeBridge = (window as unknown as { NueTifyNative?: { savePngImage?: (dataUrl: string, filename: string) => boolean } }).NueTifyNative;
+      const filename = `nuetify-lyrics-${safeSlug || 'card'}.png`;
+      const dataUrl = canvas.toDataURL('image/png');
+      if (nativeBridge?.savePngImage) {
+        const ok = nativeBridge.savePngImage(dataUrl, filename);
+        showToast(ok ? 'Kartu lirik disimpan ke Galeri (Pictures/NueTify)' : 'Gagal menyimpan kartu lirik');
+        return;
+      }
+      canvas.toBlob((blob) => {
+        const link = document.createElement('a');
+        link.download = filename;
+        if (blob) {
+          const blobUrl = URL.createObjectURL(blob);
+          link.href = blobUrl;
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            link.remove();
+            URL.revokeObjectURL(blobUrl);
+          }, 2000);
+        } else {
+          link.href = dataUrl;
+          document.body.appendChild(link);
+          link.click();
+          setTimeout(() => {
+            link.remove();
+          }, 2000);
+        }
+        showToast('Lyrics card saved as PNG');
+      }, 'image/png');
     } catch {
       showToast('Could not export image card');
     }
