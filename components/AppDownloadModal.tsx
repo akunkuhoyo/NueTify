@@ -23,11 +23,11 @@ export function AppDownloadModal() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const ua = navigator.userAgent || '';
+        const ua = navigator.userAgent || '';
     const isNativeApp =
       ua.includes('NueTifyAndroid') ||
       Boolean((window as unknown as { NueTifyNative?: unknown }).NueTifyNative);
-    if (isNativeApp) return;
+    void isNativeApp;
 
     let cancelled = false;
     fetch('/api/app-release', { cache: 'no-store' })
