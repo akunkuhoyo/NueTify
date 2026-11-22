@@ -4,13 +4,13 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'NueTify',
     short_name: 'NueTify',
-    description: 'NueTify — 24/7 Spatial Music Streaming PWA',
+    description: 'NueTify — Dikembangkan oleh Tim PT Nueva Group',
     start_url: '/',
     scope: '/',
     display: 'standalone',
     orientation: 'portrait',
-    background_color: '#000000',
-    theme_color: '#000000',
+    background_color: '#121212',
+    theme_color: '#121212',
     icons: [
       {
         src: '/icon',
