@@ -20,8 +20,6 @@ import {
   Radio,
   Repeat,
   Repeat1,
-  RotateCcw,
-  RotateCw,
   Search,
   Share2,
   Shuffle,
@@ -29,7 +27,6 @@ import {
   SkipForward,
   Sliders,
   Trash2,
-  Video,
   Volume2,
   VolumeX,
   X,
@@ -82,8 +79,6 @@ export function NowPlayingSheet() {
     sleepTimerEndOfTrack,
     settings,
     updateSettings,
-    showVideoStage,
-    setShowVideoStage,
     popupMode,
     toggleBackgroundPopup,
   } = useMusic();
@@ -101,7 +96,6 @@ export function NowPlayingSheet() {
 
   const liked = isLiked(currentTrack.videoId);
   const remainingSec = Math.max(0, duration - currentTime);
-  const seekStep = settings.seekDurationSeconds || 10;
   const artRadiusPx = settings.thumbnailCornerRadius ?? 24;
   const useExpressiveControls = settings.playerControlsStyle !== 'CLASSIC';
 
@@ -214,20 +208,6 @@ export function NowPlayingSheet() {
                   <PictureInPicture2 className="w-4 h-4" />
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => setShowVideoStage(!showVideoStage)}
-                  aria-label={showVideoStage ? 'Switch to artwork view' : 'Switch to video view'}
-                  className={cn(
-                    'w-10 h-10 sm:w-auto sm:min-h-[44px] sm:px-3.5 shrink-0 flex items-center justify-center gap-1.5 rounded-full text-xs font-medium transition-colors whitespace-nowrap',
-                    showVideoStage
-                      ? 'bg-[var(--m3-primary)] text-[var(--m3-on-primary)] font-semibold'
-                      : 'liquid-glass text-slate-700 dark:text-slate-200'
-                  )}
-                >
-                  <Video className="w-4 h-4" />
-                  <span className="hidden sm:inline">Video</span>
-                </button>
               </div>
             </div>
 
@@ -366,29 +346,7 @@ export function NowPlayingSheet() {
                     />
                     <div className="flex items-center justify-between text-xs font-mono-nums text-slate-500 dark:text-slate-400">
                       <span>{formatDuration(currentTime)}</span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => seekTo(Math.max(0, currentTime - seekStep))}
-                          aria-label={`Rewind ${seekStep} seconds`}
-                          className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-[11px] font-semibold"
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          <span>{seekStep}s</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            seekTo(Math.min(Math.max(duration, currentTime + seekStep), currentTime + seekStep))
-                          }
-                          aria-label={`Forward ${seekStep} seconds`}
-                          className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 transition-colors text-[11px] font-semibold"
-                        >
-                          <span>{seekStep}s</span>
-                          <RotateCw className="w-3 h-3" />
-                        </button>
-                      </div>
-                      <span>-{formatDuration(remainingSec)}</span>
+              <span>-{formatDuration(remainingSec)}</span>
                     </div>
                   </div>
 
@@ -605,10 +563,10 @@ export function NowPlayingSheet() {
                       min={0}
                       max={100}
                       value={isMuted ? 0 : volume}
-                      onChange={(e) => setVolume(Number(e.target.value))}
+                      onChange={(e) => { const val = Number(e.target.value); setVolume(val); (window as unknown as { NueTifyNative?: { setSystemVolume?: (pct: number) => void } }).NueTifyNative?.setSystemVolume?.(val); }}
                       aria-label="Volume"
-                      className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer bg-black/10 dark:bg-white/15 accent-[var(--m3-primary)]"
-                    />
+                      onTouchStart={(e) => e.stopPropagation()} onTouchMove={(e) => e.stopPropagation()} style={{ touchAction: 'none', background: `linear-gradient(to right, #C0C0C0 ${isMuted ? 0 : volume}%, rgba(192, 192, 192, 0.25) ${isMuted ? 0 : volume}%)` }} className="flex-1 h-2 rounded-full appearance-none cursor-pointer touch-none accent-[#C0C0C0]"
+                    /> <span className="text-xs font-medium tabular-nums text-slate-500 dark:text-slate-400 w-9 text-right">{isMuted ? 0 : volume}%</span>
                   </div>
 
                   {/* Utility Strip: Radio, Equalizer, Custom Sleep Timer, Playback Speed */}
