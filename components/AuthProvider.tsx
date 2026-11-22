@@ -350,6 +350,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isNativeAndroid =
       typeof navigator !== 'undefined' &&
       (navigator.userAgent || '').includes('NueTifyAndroid');
+    const nativeBridge =
+      typeof window !== 'undefined'
+        ? (
+            window as unknown as {
+              NueTifyNative?: { openExternalAuth?: (url: string) => void };
+            }
+          ).NueTifyNative
+        : undefined;
+    if (nativeBridge && typeof nativeBridge.openExternalAuth === 'function') {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'nuetify://auth/callback',
+          skipBrowserRedirect: true,
+          queryParams: {
+            prompt: 'select_account',
+          },
+        },
+      });
+      if (error) {
+        return { ok: false, message: error.message };
+      }
+      if (data?.url) {
+        nativeBridge.openExternalAuth(data.url);
+        return { ok: true };
+      }
+      return { ok: false, message: 'Gagal mendapatkan URL autentikasi Google.' };
+    }
     const redirectTo = isNativeAndroid
       ? 'nuetify://auth/callback'
       : typeof window !== 'undefined'
