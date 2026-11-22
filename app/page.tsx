@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { AuthGate } from '@/components/AuthGate';
+import { AuthProvider } from '@/components/AuthProvider';
 import { ChartsView } from '@/components/ChartsView';
 import { DetailView } from '@/components/DetailView';
 import { DynamicIsland } from '@/components/DynamicIsland';
@@ -83,8 +85,12 @@ function SonoraShell() {
 
 export default function Page() {
   return (
+<AuthProvider>
+<AuthGate>
     <MusicProvider>
       <SonoraShell />
     </MusicProvider>
+      </AuthGate>
+    </AuthProvider>
   );
 }
