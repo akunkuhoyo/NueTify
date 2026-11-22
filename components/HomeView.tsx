@@ -590,78 +590,105 @@ export function HomeView() {
       {selectedMood === 'all' && (
         <>
           {/* 1. Editorial Featured Spotlight Banner (Distinct visual anchor) */}
-          {spotlightTrack && (
-            <section
-              className="relative overflow-hidden rounded-[28px] metro-surface p-4 sm:p-5"
-              style={{
-                background: isDarkTheme
-                  ? 'linear-gradient(125deg, color-mix(in srgb, var(--m3-primary) 18%, var(--m3-surface)), var(--m3-surface) 68%)'
-                  : 'linear-gradient(125deg, color-mix(in srgb, var(--m3-primary) 12%, var(--m3-surface)), var(--m3-surface) 70%)',
-              }}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
-                <button
-                  type="button"
-                  onClick={() =>
-                    playTrack(
-                      spotlightTrack,
-                      quickPicks.length > 0 ? quickPicks : remoteTracks
-                    )
-                  }
-                  className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shadow-lg shrink-0 group self-start sm:self-center"
-                >
-                  <ArtworkImage
-                    src={spotlightTrack.thumbnail}
-                    alt={spotlightTrack.title}
-                    className="w-full h-full"
-                  />
-                  <div className="absolute inset-0 bg-black/35 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Play className="w-6 h-6 text-white fill-current" />
-                  </div>
-                </button>
+                         {spotlightTrack && (() => {
+const mixPool = quickPicks.length > 0 ? quickPicks : remoteTracks;
+const previewTracks = mixPool
+  .filter((t) => t.videoId !== spotlightTrack.videoId)
+  .slice(0, 2);
+const isActiveSpotlight =
+  currentTrack?.videoId === spotlightTrack.videoId && isPlaying;
 
-                <div className="min-w-0 flex-1 space-y-1">
-                  <p className="text-[11.5px] font-bold uppercase tracking-wider text-[var(--m3-primary)] flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    {currentTrack ? 'Continue Session' : 'Daily Spotlight Mix'}
-                  </p>
-                  <h2 className="text-[18px] sm:text-[22px] font-bold tracking-tight truncate">
-                    {spotlightTrack.title}
-                  </h2>
-                  <p className="text-[13.5px] opacity-65 truncate">
-                    {spotlightTrack.artist}
-                  </p>
-                </div>
+return (
+  <section className="rounded-[26px] bg-[#181818] border border-[#C0C0C0]/15 p-4 sm:p-5 space-y-4">
+    {/* Header: Artwork + Info sejajar */}
+    <div className="flex items-center gap-4">
+      <button
+        type="button"
+        onClick={() => playTrack(spotlightTrack, mixPool)}
+        className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden shrink-0 ring-1 ring-[#C0C0C0]/25 bg-[#121212] group"
+      >
+        <ArtworkImage
+          src={spotlightTrack.thumbnail}
+          alt={spotlightTrack.title}
+          className="w-full h-full"
+        />
+        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+          <Play className="w-7 h-7 text-white fill-current" />
+        </div>
+      </button>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      playTrack(
-                        spotlightTrack,
-                        quickPicks.length > 0 ? quickPicks : remoteTracks
-                      )
-                    }
-                    className="inline-flex items-center gap-1.5 px-4 h-10 rounded-full bg-[var(--m3-primary)] text-[var(--m3-on-primary)] text-[13px] font-semibold shadow-sm hover:brightness-105 active:scale-[0.98] transition-all"
-                  >
-                    <Play className="w-4 h-4 fill-current" />
-                    {currentTrack?.videoId === spotlightTrack.videoId && isPlaying
-                      ? 'Playing'
-                      : 'Play Mix'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void startRadio(spotlightTrack)}
-                    className="inline-flex items-center gap-1.5 px-3.5 h-10 rounded-full bg-black/[0.06] dark:bg-white/[0.08] text-[13px] font-semibold hover:bg-black/10 dark:hover:bg-white/[0.14] transition-colors"
-                  >
-                    <Radio className="w-4 h-4" />
-                    Radio
-                  </button>
-                </div>
-              </div>
-            </section>
-          )}
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#242424] border border-[#C0C0C0]/20 text-[10.5px] font-bold uppercase tracking-wider text-[#C0C0C0]">
+          <Sparkles className="w-3 h-3" />
+          {currentTrack ? 'Continue Session' : 'Daily Spotlight Mix'}
+        </span>
+        <h2 className="text-[19px] sm:text-[23px] font-extrabold tracking-tight text-white leading-tight line-clamp-2">
+          {spotlightTrack.title}
+        </h2>
+        <p className="text-[13px] text-[#B3B3B3] truncate">
+          {spotlightTrack.artist}
+        </p>
+        <p className="text-[11px] text-[#8E8E93]">
+          {mixPool.length} lagu kurasi · NueTify 24/7
+        </p>
+      </div>
+    </div>
 
+    {/* Preview 2 lagu berikutnya di dalam Mix */}
+    {previewTracks.length > 0 && (
+      <div className="rounded-2xl bg-[#121212] border border-[#C0C0C0]/10 divide-y divide-[#C0C0C0]/10 overflow-hidden">
+        {previewTracks.map((item) => (
+          <button
+            key={item.videoId}
+            type="button"
+            onClick={() => playTrack(item, mixPool)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#1E1E1E] transition-colors"
+          >
+            <div className="w-9 h-9 rounded-lg overflow-hidden shrink-0 bg-[#242424]">
+              <ArtworkImage
+                src={item.thumbnail}
+                alt={item.title}
+                className="w-full h-full"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold text-[#E5E5E5] truncate">
+                {item.title}
+              </p>
+              <p className="text-[11.5px] text-[#8E8E93] truncate">
+                {item.artist}
+              </p>
+            </div>
+            <span className="w-7 h-7 rounded-full bg-[#242424] flex items-center justify-center text-[#C0C0C0] shrink-0">
+              <Play className="w-3.5 h-3.5 fill-current" />
+            </span>
+          </button>
+        ))}
+      </div>
+    )}
+
+    {/* Tombol Aksi */}
+    <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5">
+      <button
+        type="button"
+        onClick={() => playTrack(spotlightTrack, mixPool)}
+        className="inline-flex items-center justify-center gap-2 px-5 h-11 rounded-full bg-[#C0C0C0] text-black text-[13.5px] font-bold hover:bg-[#D4D4D8] active:scale-[0.98] transition-all"
+      >
+        <Play className="w-4 h-4 fill-current" />
+        <span>{isActiveSpotlight ? 'Playing' : 'Play Mix'}</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => void startRadio(spotlightTrack)}
+        className="inline-flex items-center justify-center gap-2 px-4 h-11 rounded-full bg-[#242424] border border-[#C0C0C0]/20 text-[#E5E5E5] text-[13.5px] font-semibold hover:bg-[#2E2E2E] active:scale-[0.98] transition-all"
+      >
+        <Radio className="w-4 h-4 text-[#C0C0C0]" />
+        <span>Start Radio</span>
+      </button>
+    </div>
+  </section>
+);
+})()}
           {/* NEW VARIATION 1: Pilihan Teratas untuk Anda (Tall 3-Circle Artist Collage Cards) */}
           <TopPicksCollageSection
             tracks={editorialTrackPool}
