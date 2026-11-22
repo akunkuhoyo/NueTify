@@ -53,7 +53,7 @@ export function TopPicksCollageSection({
     const seenArtists = new Set<string>();
     const leads: Track[] = [];
     for (const track of unique) {
-      const primaryArtist = (track.artists?.[0]?.name || track.artist || 'Sonara')
+      const primaryArtist = (track.artists?.[0]?.name || track.artist || 'NueTify')
         .split(/[,&]|feat\.|ft\./i)[0]
         .trim();
       const key = primaryArtist.toLowerCase();
@@ -66,7 +66,7 @@ export function TopPicksCollageSection({
     if (leads.length === 0) return [];
 
     return leads.map((lead, idx) => {
-      const primaryArtist = (lead.artists?.[0]?.name || lead.artist || 'Sonara')
+      const primaryArtist = (lead.artists?.[0]?.name || lead.artist || 'NueTify')
         .split(/[,&]|feat\.|ft\./i)[0]
         .trim();
       const others = unique.filter((t) => t.videoId !== lead.videoId);
@@ -106,11 +106,11 @@ export function TopPicksCollageSection({
             style={{ background: card.palette.bg }}
             className="group relative w-[228px] sm:w-[248px] h-[300px] sm:h-[318px] rounded-[22px] shrink-0 snap-start overflow-hidden text-left p-4 flex flex-col justify-between shadow-lg active:scale-[0.98] transition-transform"
           >
-            {/* Subtle top-right Sonara badge */}
+            {/* Subtle top-right NueTify badge */}
             <div className="flex items-center justify-end">
               <span className="inline-flex items-center gap-1 text-[12px] font-bold tracking-tight text-white/90">
                 <Music2 className="w-3.5 h-3.5" />
-                Sonara
+                NueTify
               </span>
             </div>
 
@@ -281,7 +281,7 @@ export function EditorialFeatureCarousel({
               Top 100: {regionName}
             </h2>
             <p className="text-[15px] opacity-60 leading-tight truncate">
-              Sonara Charts
+              NueTify Charts
             </p>
           </div>
 
@@ -428,7 +428,7 @@ export function EssentialsAndAlbumsSection({
   const essentialsLead = uniqueTracks[0];
   if (!essentialsLead) return null;
 
-  const leadArtist = (essentialsLead.artists?.[0]?.name || essentialsLead.artist || 'Sonara')
+  const leadArtist = (essentialsLead.artists?.[0]?.name || essentialsLead.artist || 'NueTify')
     .split(/[,&]|feat\.|ft\./i)[0]
     .trim();
 
@@ -458,7 +458,7 @@ export function EssentialsAndAlbumsSection({
           <div className="w-[164px] h-[164px] sm:w-[186px] sm:h-[186px] rounded-[14px] overflow-hidden shadow-md flex flex-col bg-[#BDD0DC]">
             <div className="px-2.5 pt-2 pb-1.5 flex flex-col justify-between bg-[#BDD0DC] text-slate-950 shrink-0">
               <span className="self-end inline-flex items-center gap-0.5 text-[10px] font-bold opacity-80">
-                <Music2 className="w-2.5 h-2.5" /> Sonara
+                <Music2 className="w-2.5 h-2.5" /> NueTify
               </span>
               <span className="text-[17px] font-extrabold tracking-tight leading-none">
                 Essentials
@@ -477,7 +477,7 @@ export function EssentialsAndAlbumsSection({
             <p className="text-[14px] font-semibold leading-snug truncate">
               {leadArtist} Essentials
             </p>
-            <p className="text-[12.5px] opacity-60 truncate">Sonara Mix</p>
+            <p className="text-[12.5px] opacity-60 truncate">NueTify Mix</p>
           </div>
         </button>
 
