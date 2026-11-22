@@ -164,6 +164,7 @@ export interface PlayerSettings {
   autoContinueRadio: boolean;
   backgroundPlay: boolean;
   autoPopoutIsland: boolean;
+  showDynamicIsland: boolean;
   playbackRate: number;
   seekDurationSeconds: number; // 5 | 10 | 15 | 30
   keepPausedOnSongChange: boolean;
