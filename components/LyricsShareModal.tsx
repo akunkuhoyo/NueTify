@@ -255,10 +255,10 @@ export function LyricsShareModal({ open, onClose }: LyricsShareModalProps) {
         cursorY += lineHeight;
       }
 
-      // Clean Sonara signature footer
+      // Clean NueTify signature footer
       ctx.fillStyle = activeTheme.mutedColor;
       ctx.font = '600 28px system-ui, -apple-system, sans-serif';
-      ctx.fillText('Sonara', pad, canvas.height - pad);
+      ctx.fillText('NueTify', pad, canvas.height - pad);
 
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
@@ -266,7 +266,7 @@ export function LyricsShareModal({ open, onClose }: LyricsShareModalProps) {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .slice(0, 32);
-      link.download = `sonara-lyrics-${safeSlug || 'card'}.png`;
+      link.download = `nuetify-lyrics-${safeSlug || 'card'}.png`;
       link.href = dataUrl;
       document.body.appendChild(link);
       link.click();
@@ -391,7 +391,7 @@ export function LyricsShareModal({ open, onClose }: LyricsShareModalProps) {
                       className="text-[11px] font-semibold tracking-wide"
                       style={{ color: activeTheme.mutedColor }}
                     >
-                      Sonara
+                      NueTify
                     </span>
                     <Sparkles
                       className="w-3.5 h-3.5"
