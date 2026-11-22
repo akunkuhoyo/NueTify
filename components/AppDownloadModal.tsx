@@ -12,46 +12,59 @@ interface ReleaseInfo {
 
 const FALLBACK_RELEASE: ReleaseInfo = {
   version: 'Terbaru',
-  downloadUrl: ['https:', '', 'github.com', 'akunkuhoyo', 'NueTify', 'releases', 'latest', 'download', 'NueTify.apk'].join('/'),
+  downloadUrl:
+    'https://github.com/akunkuhoyo/NueTify/releases/latest/download/NueTify.apk',
   fileSizeMb: null,
   publishedAt: null,
 };
 
 export function AppDownloadModal() {
   const [open, setOpen] = useState(false);
+  const [isNative, setIsNative] = useState(false);
   const [release, setRelease] = useState<ReleaseInfo>(FALLBACK_RELEASE);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-        const ua = navigator.userAgent || '';
+    const ua = navigator.userAgent || '';
     const isNativeApp =
       ua.includes('NueTifyAndroid') ||
       Boolean((window as unknown as { NueTifyNative?: unknown }).NueTifyNative);
-    void isNativeApp;
+    setIsNative(isNativeApp);
+
+    const checkAndShow = (info: ReleaseInfo) => {
+      const resolved: ReleaseInfo = {
+        version: info?.version || 'Terbaru',
+        downloadUrl: info?.downloadUrl || FALLBACK_RELEASE.downloadUrl,
+        fileSizeMb: info?.fileSizeMb || null,
+        publishedAt: info?.publishedAt || null,
+      };
+      setRelease(resolved);
+
+      try {
+        if (isNativeApp) {
+          const seenKey = `nuetify_apk_seen_v2_${resolved.version}`;
+          if (!window.localStorage.getItem(seenKey)) {
+            setOpen(true);
+          }
+        } else {
+          const sessionKey = `nuetify_web_popup_v2_${resolved.version}`;
+          if (!window.sessionStorage.getItem(sessionKey)) {
+            setOpen(true);
+          }
+        }
+      } catch {
+        setOpen(true);
+      }
+    };
 
     let cancelled = false;
     fetch('/api/app-release', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : FALLBACK_RELEASE))
       .then((info: ReleaseInfo) => {
-        if (cancelled) return;
-        const resolved: ReleaseInfo = {
-          version: info?.version || 'Terbaru',
-          downloadUrl: info?.downloadUrl || FALLBACK_RELEASE.downloadUrl,
-          fileSizeMb: info?.fileSizeMb || null,
-          publishedAt: info?.publishedAt || null,
-        };
-        setRelease(resolved);
-        const dismissKey = `nuetify_apk_dismissed_${resolved.version}`;
-        if (!window.localStorage.getItem(dismissKey)) {
-          setOpen(true);
-        }
+        if (!cancelled) checkAndShow(info);
       })
       .catch(() => {
-        if (cancelled) return;
-        const dismissKey = 'nuetify_apk_dismissed_Terbaru';
-        if (!window.localStorage.getItem(dismissKey)) {
-          setOpen(true);
-        }
+        if (!cancelled) checkAndShow(FALLBACK_RELEASE);
       });
 
     return () => {
@@ -61,7 +74,11 @@ export function AppDownloadModal() {
 
   const handleDismiss = () => {
     try {
-      window.localStorage.setItem(`nuetify_apk_dismissed_${release.version}`, '1');
+      if (isNative) {
+        window.localStorage.setItem(`nuetify_apk_seen_v2_${release.version}`, '1');
+      } else {
+        window.sessionStorage.setItem(`nuetify_web_popup_v2_${release.version}`, '1');
+      }
     } catch {
       // ignore storage errors
     }
@@ -95,7 +112,7 @@ export function AppDownloadModal() {
           />
           <div className="min-w-0">
             <h2 className="text-lg font-bold tracking-tight text-white">
-              NueTify Android
+              {isNative ? 'Update NueTify Tersedia' : 'NueTify Android'}
             </h2>
             <p className="text-xs text-[#C0C0C0] mt-0.5">
               Versi {release.version}
@@ -105,7 +122,15 @@ export function AppDownloadModal() {
         </div>
 
         <p className="mt-4 text-sm leading-relaxed text-[#B3B3B3]">
-          Pasang aplikasi native Android <span className="font-semibold text-white">NueTify</span> untuk pengalaman streaming 24 jam tanpa henti:
+          {isNative ? (
+            <>
+              Versi terbaru aplikasi Android <span className="font-semibold text-white">NueTify</span> sudah tersedia. Unduh dan instal langsung untuk memperbarui tanpa menghapus playlist Anda:
+            </>
+          ) : (
+            <>
+              Pasang aplikasi native Android <span className="font-semibold text-white">NueTify</span> untuk pengalaman streaming 24 jam tanpa henti:
+            </>
+          )}
         </p>
 
         <ul className="mt-3 space-y-2 text-xs text-[#D4D4D8]">
@@ -115,7 +140,7 @@ export function AppDownloadModal() {
           </li>
           <li className="flex items-center gap-2">
             <Smartphone className="h-3.5 w-3.5 text-[#C0C0C0] shrink-0" />
-            <span>Notifikasi lockscreen lengkap (Like, Prev, Play/Pause, Next, Repeat)</span>
+            <span>Notifikasi lockscreen lengkap (Shuffle, Prev, Play/Pause, Next, Repeat)</span>
           </li>
         </ul>
 
@@ -127,14 +152,16 @@ export function AppDownloadModal() {
             className="flex w-full items-center justify-center gap-2 rounded-full bg-[#C0C0C0] px-4 py-3 text-sm font-bold text-black hover:bg-[#D4D4D8] transition-colors"
           >
             <Download className="h-4 w-4" />
-            <span>Download NueTify APK</span>
+            <span>
+              {isNative ? `Update ke ${release.version}` : 'Download NueTify APK'}
+            </span>
           </a>
           <button
             type="button"
             onClick={handleDismiss}
             className="w-full rounded-full bg-[#242424] px-4 py-2.5 text-sm font-medium text-[#E5E5E5] hover:bg-[#2E2E2E] transition-colors"
           >
-            Lanjut di Web
+            {isNative ? 'Nanti Saja' : 'Lanjut di Web'}
           </button>
         </div>
 
