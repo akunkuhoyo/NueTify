@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.media.AudioManager
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
@@ -318,6 +319,19 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+                       @JavascriptInterface
+        fun setSystemVolume(percent: Int) {
+    runOnUiThread {
+                try {
+                    val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    val maxVol = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    val clamped = percent.coerceIn(0, 100)
+                    val target = Math.round((clamped / 100.0) * maxVol).toInt().coerceIn(0, maxVol)
+                    am.setStreamVolume(AudioManager.STREAM_MUSIC, target, 0)
+                } catch (_: Exception) {
+                }
+    }
+        }
         @JavascriptInterface
         fun savePngImage(base64DataUrl: String, filename: String): Boolean {
             return try {
