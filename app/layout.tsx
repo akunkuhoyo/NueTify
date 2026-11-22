@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { PwaRegister } from '@/components/PwaRegister';
+import { AppDownloadModal } from '@/components/AppDownloadModal';
 
 export const viewport: Viewport = {
   themeColor: '#121212',
@@ -55,6 +56,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <PwaRegister />
+        <AppDownloadModal />
         {children}
       </body>
     </html>
