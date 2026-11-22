@@ -10,7 +10,11 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Build
+import android.os.Bundle
 import android.os.IBinder
 import android.os.PowerManager
 import android.support.v4.media.MediaMetadataCompat
@@ -28,35 +32,49 @@ class MusicForegroundService : Service() {
         const val NOTIF_ID = 1001
 
         const val ACTION_UPDATE = "com.ptnuevagroup.nuetify.ACTION_UPDATE"
-        const val ACTION_LIKE = "com.ptnuevagroup.nuetify.ACTION_LIKE"
+        const val ACTION_POSITION = "com.ptnuevagroup.nuetify.ACTION_POSITION"
+        const val ACTION_SHUFFLE = "com.ptnuevagroup.nuetify.ACTION_SHUFFLE"
         const val ACTION_PREV = "com.ptnuevagroup.nuetify.ACTION_PREV"
         const val ACTION_PLAY_PAUSE = "com.ptnuevagroup.nuetify.ACTION_PLAY_PAUSE"
         const val ACTION_NEXT = "com.ptnuevagroup.nuetify.ACTION_NEXT"
         const val ACTION_REPEAT = "com.ptnuevagroup.nuetify.ACTION_REPEAT"
 
+        const val CUSTOM_ACTION_SHUFFLE = "CUSTOM_SHUFFLE"
+        const val CUSTOM_ACTION_REPEAT = "CUSTOM_REPEAT"
+
         @Volatile
         var onActionListener: ((String) -> Unit)? = null
+
+        @Volatile
+        var onSeekListener: ((Long) -> Unit)? = null
     }
 
     private lateinit var mediaSession: MediaSessionCompat
     private var wakeLock: PowerManager.WakeLock? = null
+    private var audioManager: AudioManager? = null
+    private var focusRequest: AudioFocusRequest? = null
     private val executor = Executors.newSingleThreadExecutor()
 
     private var currentTitle = "NueTify"
     private var currentArtist = "PT Nueva Group"
     private var currentIsPlaying = false
-    private var currentIsLiked = false
+    private var currentShuffleOn = false
     private var currentRepeatMode = "off"
+    private var currentPositionMs = 0L
+    private var currentDurationMs = 0L
     private var currentArtworkUrl = ""
     private var currentArtworkBitmap: Bitmap? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        requestAudioFocus()
 
         mediaSession = MediaSessionCompat(this, "NueTifyMediaSession").apply {
             setCallback(object : MediaSessionCompat.Callback() {
                 override fun onPlay() {
+                    requestAudioFocus()
                     onActionListener?.invoke("PLAY_PAUSE")
                 }
 
@@ -71,6 +89,19 @@ class MusicForegroundService : Service() {
                 override fun onSkipToPrevious() {
                     onActionListener?.invoke("PREV")
                 }
+
+                override fun onSeekTo(pos: Long) {
+                    currentPositionMs = pos
+                    onSeekListener?.invoke(pos)
+                    updatePlaybackStateOnly()
+                }
+
+                override fun onCustomAction(action: String?, extras: Bundle?) {
+                    when (action) {
+                        CUSTOM_ACTION_SHUFFLE -> onActionListener?.invoke("SHUFFLE")
+                        CUSTOM_ACTION_REPEAT -> onActionListener?.invoke("REPEAT")
+                    }
+                }
             })
             isActive = true
         }
@@ -82,19 +113,55 @@ class MusicForegroundService : Service() {
         }
     }
 
+    private fun requestAudioFocus() {
+        val am = audioManager ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val attrs = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(attrs)
+                .setOnAudioFocusChangeListener { }
+                .build()
+            focusRequest = req
+            am.requestAudioFocus(req)
+        } else {
+            @Suppress("DEPRECATION")
+            am.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_LIKE -> onActionListener?.invoke("LIKE")
+            ACTION_SHUFFLE -> onActionListener?.invoke("SHUFFLE")
             ACTION_PREV -> onActionListener?.invoke("PREV")
             ACTION_PLAY_PAUSE -> onActionListener?.invoke("PLAY_PAUSE")
             ACTION_NEXT -> onActionListener?.invoke("NEXT")
             ACTION_REPEAT -> onActionListener?.invoke("REPEAT")
+            ACTION_POSITION -> {
+                currentPositionMs = intent.getLongExtra("positionMs", currentPositionMs)
+                val newDur = intent.getLongExtra("durationMs", currentDurationMs)
+                val durChanged = newDur > 0L && newDur != currentDurationMs
+                if (newDur > 0L) currentDurationMs = newDur
+                currentIsPlaying = intent.getBooleanExtra("isPlaying", currentIsPlaying)
+                if (durChanged) {
+                    updateSessionAndNotification()
+                } else {
+                    updatePlaybackStateOnly()
+                }
+                return START_STICKY
+            }
             ACTION_UPDATE, null -> {
                 currentTitle = intent?.getStringExtra("title") ?: currentTitle
                 currentArtist = intent?.getStringExtra("artist") ?: currentArtist
                 currentIsPlaying = intent?.getBooleanExtra("isPlaying", currentIsPlaying) ?: currentIsPlaying
-                currentIsLiked = intent?.getBooleanExtra("isLiked", currentIsLiked) ?: currentIsLiked
+                currentShuffleOn = intent?.getBooleanExtra("shuffleOn", currentShuffleOn) ?: currentShuffleOn
                 currentRepeatMode = intent?.getStringExtra("repeatMode") ?: currentRepeatMode
+                currentPositionMs = intent?.getLongExtra("positionMs", currentPositionMs) ?: currentPositionMs
+                val newDur = intent?.getLongExtra("durationMs", currentDurationMs) ?: currentDurationMs
+                if (newDur > 0L) currentDurationMs = newDur
+                if (currentIsPlaying) requestAudioFocus()
                 val newArtUrl = intent?.getStringExtra("artworkUrl") ?: ""
                 if (newArtUrl.isNotBlank() && newArtUrl != currentArtworkUrl) {
                     currentArtworkUrl = newArtUrl
@@ -122,28 +189,58 @@ class MusicForegroundService : Service() {
         }
     }
 
-    private fun updateSessionAndNotification() {
+    private fun updatePlaybackStateOnly() {
         val state = if (currentIsPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+        val speed = if (currentIsPlaying) 1.0f else 0.0f
+        val shuffleLabel = if (currentShuffleOn) "Shuffle On" else "Shuffle"
+        val repeatIcon = if (currentRepeatMode == "one") R.drawable.ic_repeat_one else R.drawable.ic_repeat
+        val repeatLabel = when (currentRepeatMode) {
+            "one" -> "Repeat One"
+            "all" -> "Repeat All"
+            else -> "Repeat"
+        }
+
         val playbackState = PlaybackStateCompat.Builder()
             .setActions(
                 PlaybackStateCompat.ACTION_PLAY or
                     PlaybackStateCompat.ACTION_PAUSE or
                     PlaybackStateCompat.ACTION_PLAY_PAUSE or
                     PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
-                    PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS
+                    PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                    PlaybackStateCompat.ACTION_SEEK_TO
             )
-            .setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1f)
+            .addCustomAction(
+                PlaybackStateCompat.CustomAction.Builder(
+                    CUSTOM_ACTION_SHUFFLE,
+                    shuffleLabel,
+                    R.drawable.ic_shuffle
+                ).build()
+            )
+            .addCustomAction(
+                PlaybackStateCompat.CustomAction.Builder(
+                    CUSTOM_ACTION_REPEAT,
+                    repeatLabel,
+                    repeatIcon
+                ).build()
+            )
+            .setState(state, currentPositionMs, speed)
             .build()
         mediaSession.setPlaybackState(playbackState)
+    }
+
+    private fun updateSessionAndNotification() {
+        updatePlaybackStateOnly()
 
         val largeIcon = currentArtworkBitmap ?: BitmapFactory.decodeResource(resources, R.mipmap.ic_launcher)
-        val metadata = MediaMetadataCompat.Builder()
+        val metadataBuilder = MediaMetadataCompat.Builder()
             .putString(MediaMetadataCompat.METADATA_KEY_TITLE, currentTitle)
             .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentArtist)
             .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, "NueTify")
             .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, largeIcon)
-            .build()
-        mediaSession.setMetadata(metadata)
+        if (currentDurationMs > 0L) {
+            metadataBuilder.putLong(MediaMetadataCompat.METADATA_KEY_DURATION, currentDurationMs)
+        }
+        mediaSession.setMetadata(metadataBuilder.build())
 
         val notification = buildNotification(largeIcon)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -174,10 +271,9 @@ class MusicForegroundService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val likeIcon = if (currentIsLiked) android.R.drawable.btn_star_big_on else android.R.drawable.btn_star_big_off
         val playPauseIcon = if (currentIsPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
         val playPauseLabel = if (currentIsPlaying) "Pause" else "Play"
-        val repeatLabel = if (currentRepeatMode == "off") "Repeat" else "Repeat ($currentRepeatMode)"
+        val repeatIcon = if (currentRepeatMode == "one") R.drawable.ic_repeat_one else R.drawable.ic_repeat
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
@@ -188,11 +284,11 @@ class MusicForegroundService : Service() {
             .setContentIntent(contentIntent)
             .setOngoing(currentIsPlaying)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .addAction(likeIcon, "Like", serviceActionIntent(ACTION_LIKE, 1))
+            .addAction(R.drawable.ic_shuffle, "Shuffle", serviceActionIntent(ACTION_SHUFFLE, 1))
             .addAction(android.R.drawable.ic_media_previous, "Previous", serviceActionIntent(ACTION_PREV, 2))
             .addAction(playPauseIcon, playPauseLabel, serviceActionIntent(ACTION_PLAY_PAUSE, 3))
             .addAction(android.R.drawable.ic_media_next, "Next", serviceActionIntent(ACTION_NEXT, 4))
-            .addAction(android.R.drawable.ic_menu_rotate, repeatLabel, serviceActionIntent(ACTION_REPEAT, 5))
+            .addAction(repeatIcon, "Repeat", serviceActionIntent(ACTION_REPEAT, 5))
             .setStyle(
                 MediaStyle()
                     .setMediaSession(mediaSession.sessionToken)
@@ -217,6 +313,9 @@ class MusicForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+        }
         wakeLock?.let { if (it.isHeld) it.release() }
         mediaSession.isActive = false
         mediaSession.release()
