@@ -15,7 +15,7 @@ export async function GET() {
         Accept: 'application/vnd.github+json',
         'User-Agent': 'NueTify-Web',
       },
-      next: { revalidate: 120 },
+      cache: 'no-store',
     });
 
     if (!res.ok) {
