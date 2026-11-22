@@ -187,6 +187,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       setErrorMsg(res.message || 'Login Google gagal atau belum diaktifkan.');
       setSubmitting(false);
     }
+    setSubmitting(false);
   };
 
   return (
