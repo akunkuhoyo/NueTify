@@ -43,8 +43,9 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setActiveTab('home')}
-            className="text-xl font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0 text-left"
+            className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0 text-left"
           >
+              <img src="/icon" alt="NueTify" className="w-8 h-8 rounded-lg object-cover shrink-0" />
             NueTify
           </button>
         </div>
