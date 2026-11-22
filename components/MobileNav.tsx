@@ -73,7 +73,7 @@ export function MobileTopBar() {
             NueTify
           </span>
           <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[#A7A7A7] mt-0.5">
-            PT Nueva Group
+            Music Platform
           </span>
         </div>
       </button>
