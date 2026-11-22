@@ -1350,7 +1350,7 @@ export function SettingsView() {
                 />
               }
             />
-
+                {/* Dynamic Island */} <PreferenceRow icon={PictureInPicture2} title="Dynamic Island" description="Tampilkan pil Dynamic Island pemutar lagu di bagian atas layar" trailing={<M3Switch label="Dynamic Island" checked={Boolean(settings.showDynamicIsland)} onChange={() => updateSettings({ showDynamicIsland: !settings.showDynamicIsland })} />} />
             {/* Auto Pop-Out Dynamic Island */}
             <PreferenceRow
               icon={PictureInPicture2}
