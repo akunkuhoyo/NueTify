@@ -357,6 +357,14 @@ class MainActivity : AppCompatActivity() {
             } catch (_: Exception) {
                 false
             }
+        } 
+        @JavascriptInterface
+        fun getAppVersionName(): String {
+            return try {
+                packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+                } catch (_: Exception) {
+                ""
+            }
         }
     }
 
