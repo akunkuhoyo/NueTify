@@ -193,7 +193,12 @@ class MusicForegroundService : Service() {
         val state = if (currentIsPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
         val speed = if (currentIsPlaying) 1.0f else 0.0f
         val shuffleLabel = if (currentShuffleOn) "Shuffle On" else "Shuffle"
-        val repeatIcon = if (currentRepeatMode == "one") R.drawable.ic_repeat_one else R.drawable.ic_repeat
+   val shuffleIcon = if (currentShuffleOn) R.drawable.ic_shuffle_on else R.drawable.ic_shuffle_off
+        val repeatIcon = when (currentRepeatMode) {
+            "one" -> R.drawable.ic_repeat_one
+            "all" -> R.drawable.ic_repeat_all
+            else -> R.drawable.ic_repeat_off
+        }
         val repeatLabel = when (currentRepeatMode) {
             "one" -> "Repeat One"
             "all" -> "Repeat All"
@@ -213,7 +218,7 @@ class MusicForegroundService : Service() {
                 PlaybackStateCompat.CustomAction.Builder(
                     CUSTOM_ACTION_SHUFFLE,
                     shuffleLabel,
-                    R.drawable.ic_shuffle
+                    shuffleIcon
                 ).build()
             )
             .addCustomAction(
@@ -273,18 +278,29 @@ class MusicForegroundService : Service() {
 
         val playPauseIcon = if (currentIsPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
         val playPauseLabel = if (currentIsPlaying) "Pause" else "Play"
-        val repeatIcon = if (currentRepeatMode == "one") R.drawable.ic_repeat_one else R.drawable.ic_repeat
+           val shuffleIcon = if (currentShuffleOn) R.drawable.ic_shuffle_on else R.drawable.ic_shuffle_off
+        val repeatIcon = when (currentRepeatMode) {
+            "one" -> R.drawable.ic_repeat_one
+            "all" -> R.drawable.ic_repeat_all
+            else -> R.drawable.ic_repeat_off
+        }
+        val statusParts = mutableListOf("NueTify")
+        if (currentShuffleOn) statusParts.add("Shuffle ON")
+        when (currentRepeatMode) {
+            "one" -> statusParts.add("Repeat 1")
+            "all" -> statusParts.add("Repeat All")
+        }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setLargeIcon(largeIcon)
             .setContentTitle(currentTitle)
             .setContentText(currentArtist)
-            .setSubText("NueTify")
+            .setSubText(statusParts.joinToString(" · "))
             .setContentIntent(contentIntent)
             .setOngoing(currentIsPlaying)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .addAction(R.drawable.ic_shuffle, "Shuffle", serviceActionIntent(ACTION_SHUFFLE, 1))
+            .addAction(shuffleIcon, "Shuffle", serviceActionIntent(ACTION_SHUFFLE, 1))
             .addAction(android.R.drawable.ic_media_previous, "Previous", serviceActionIntent(ACTION_PREV, 2))
             .addAction(playPauseIcon, playPauseLabel, serviceActionIntent(ACTION_PLAY_PAUSE, 3))
             .addAction(android.R.drawable.ic_media_next, "Next", serviceActionIntent(ACTION_NEXT, 4))
