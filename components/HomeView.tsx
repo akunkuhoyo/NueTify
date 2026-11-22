@@ -174,7 +174,7 @@ export function HomeView() {
   const [moodLoading, setMoodLoading] = useState(false);
   const [searchRecs, setSearchRecs] = useState<Track[]>([]);
   useEffect(() => { const q = searchHistory?.[0]; if (!q) { setSearchRecs([]); return; } let cancelled = false; fetch(`/api/music/search?q=${encodeURIComponent(q)}`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (cancelled || !d) return; const list = Array.isArray(d.tracks) ? d.tracks : Array.isArray(d.songs) ? d.songs : Array.isArray(d.results) ? d.results : Array.isArray(d) ? d : []; setSearchRecs(list.slice(0, 8)); }).catch(() => {}); return () => { cancelled = true; }; }, [searchHistory?.[0]]);
-  const mostPlayed = useMemo(() => { if (!history || history.length === 0) return []; const counts = new Map<string, { track: Track; count: number }>(); for (const t of history) { const key = t?.videoId; if (!key) continue; const cur = counts.get(key); if (cur) cur.count += 1; else counts.set(key, { track: t, count: 1 }); } return Array.from(counts.values()).sort((a, b) => b.count - a.count).slice(0, 8); }, [history]);
+  const mostPlayed = useMemo(() => { if (!history || history.length === 0) return []; const map = new Map<string, { track: Track; count: number }>(); for (const ev of history) { const t = ev.track; if (!t?.videoId) continue; const existing = map.get(t.videoId); if (existing) { existing.count += 1; } else { map.set(t.videoId, { track: t, count: 1 }); } } return Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, 8); }, [history]);
   
   // Trending by genre state (matching IMG_2148 reference)
   const [selectedGenreId, setSelectedGenreId] = useState<string>('pop');
