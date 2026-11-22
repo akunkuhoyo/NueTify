@@ -13,16 +13,16 @@ export default function Icon() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: 'linear-gradient(135deg, #0b0d14 0%, #1d1438 55%, #000000 100%)',
-          borderRadius: '112px',
-          color: '#ffffff',
-          fontSize: 280,
-          fontWeight: 800,
-          fontFamily: 'sans-serif',
-          letterSpacing: '-12px',
+          backgroundColor: '#000000',
         }}
       >
-        N
+        <img
+          src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRV5isL7Sh5nl63FMY7WQDyzB8kQ9TI5S4Di3y6hP--L5t6RQHfGVQpueU&s=10"
+          alt="NueTify"
+          width={512}
+          height={512}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        />
       </div>
     ),
     { ...size }
