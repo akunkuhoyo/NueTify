@@ -1131,6 +1131,18 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
         case 'PLAY_PAUSE':
           togglePlayPause();
           break;
+        case 'PLAY':
+          userPausedRef.current = false;
+          intendedPlayingRef.current = true;
+          ytPlayerRef.current?.playVideo?.();
+          setIsPlaying(true);
+          break;
+        case 'PAUSE':
+          userPausedRef.current = true;
+          intendedPlayingRef.current = false;
+          ytPlayerRef.current?.pauseVideo?.();
+          setIsPlaying(false);
+          break;
         case 'NEXT':
           nextTrack(true);
           break;
@@ -1140,12 +1152,32 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
         case 'LIKE':
           if (currentTrack) toggleLike(currentTrack);
           break;
-        case 'REPEAT':
+            case 'REPEAT': {
+          const wasPlaying = intendedPlayingRef.current || isPlaying;
           cycleRepeat();
+          if (wasPlaying) {
+            setTimeout(() => {
+              if (intendedPlayingRef.current) {
+                ytPlayerRef.current?.playVideo?.();
+                setIsPlaying(true);
+              }
+            }, 180);
+          }
           break;
-        case 'SHUFFLE':
+        }
+        case 'SHUFFLE': {
+          const wasPlaying = intendedPlayingRef.current || isPlaying;
           toggleShuffle();
+          if (wasPlaying) {
+            setTimeout(() => {
+              if (intendedPlayingRef.current) {
+                ytPlayerRef.current?.playVideo?.();
+                setIsPlaying(true);
+              }
+            }, 180);
+          }
           break;
+        }
       }
     };
     const onNativeSeek = (e: Event) => {
