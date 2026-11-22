@@ -175,7 +175,7 @@ export function HomeView() {
   const [moodTracks, setMoodTracks] = useState<Track[] | null>(null);
   const [moodLoading, setMoodLoading] = useState(false);
   const [searchRecs, setSearchRecs] = useState<Track[]>([]);
-  useEffect(() => { const q = searchHistory?.[0]; if (!q) { setSearchRecs([]); return; } let cancelled = false; fetch(`/api/music/search?q=${encodeURIComponent(q)}`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (cancelled || !d) return; const list = Array.isArray(d.tracks) ? d.tracks : Array.isArray(d.songs) ? d.songs : Array.isArray(d.results) ? d.results : Array.isArray(d) ? d : []; setSearchRecs(list.slice(0, 8)); }).catch(() => {}); return () => { cancelled = true; }; }, [searchHistory?.[0]]);
+  useEffect(() => { try { const raw = localStorage.getItem('nuetify_taste_pool_v1'); if (raw) { const parsed = JSON.parse(raw); if (Array.isArray(parsed) && parsed.length > 0) setSearchRecs(parsed.slice(0, 60)); } } catch {} }, []); useEffect(() => { const recentSearches = (searchHistory || []).slice(0, 5).map((s) => s.trim()).filter(Boolean); const artistCounts = new Map<string, number>(); for (const ev of history || []) { const a = ev?.track?.artist?.trim(); if (a) artistCounts.set(a, (artistCounts.get(a) || 0) + 1); } for (const t of likedTracks || []) { const a = t?.artist?.trim(); if (a) artistCounts.set(a, (artistCounts.get(a) || 0) + 2); } const topArtists = Array.from(artistCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([a]) => a); const phraseTokens: string[] = []; const bigramTokens: string[] = []; const wordTokens: string[] = []; for (const q of recentSearches) { phraseTokens.push(q); const words = q.split(/\s+/).filter(Boolean); for (let i = 0; i < words.length - 1; i++) bigramTokens.push(`${words[i]} ${words[i + 1]}`); for (const w of words) { if (w.length >= 4) wordTokens.push(w); } } const candidates: string[] = []; if (recentSearches[0]) candidates.push(recentSearches[0]); if (recentSearches[1]) candidates.push(recentSearches[1]); for (const tok of [...bigramTokens, ...wordTokens, ...topArtists, ...phraseTokens]) { if (!candidates.some((c) => c.toLowerCase() === tok.toLowerCase())) candidates.push(tok); } const queries = candidates.slice(0, 3); if (queries.length === 0) return; let cancelled = false; Promise.all(queries.map((q) => fetch(`/api/music/search?q=${encodeURIComponent(q)}`).then((r) => (r.ok ? r.json() : null)).then((d) => (!d ? [] : Array.isArray(d.tracks) ? d.tracks : Array.isArray(d.songs) ? d.songs : Array.isArray(d.results) ? d.results : Array.isArray(d) ? d : []) as Track[]).catch(() => [] as Track[]))).then((batches) => { if (cancelled) return; const incoming = batches.flat().filter((t): t is Track => Boolean(t?.videoId)); if (incoming.length === 0) return; setSearchRecs((prev) => { const seen = new Set<string>(); const merged: Track[] = []; for (const t of [...incoming, ...prev]) { if (!t?.videoId || seen.has(t.videoId)) continue; seen.add(t.videoId); merged.push(t); if (merged.length >= 60) break; } try { localStorage.setItem('nuetify_taste_pool_v1', JSON.stringify(merged)); } catch {} return merged; }); }); return () => { cancelled = true; }; }, [searchHistory, history, likedTracks]);
   const mostPlayed = useMemo(() => { if (!history || history.length === 0) return []; const map = new Map<string, { track: Track; count: number }>(); for (const ev of history) { const t = ev.track; if (!t?.videoId) continue; const existing = map.get(t.videoId); if (existing) { existing.count += 1; } else { map.set(t.videoId, { track: t, count: 1 }); } } return Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, 8); }, [history]);
   
   // Trending by genre state (matching IMG_2148 reference)
@@ -349,11 +349,11 @@ export function HomeView() {
       buildQuickPicks({
         history,
         likedTracks,
-        remoteCandidates: remoteTracks,
+        remoteCandidates: Array.from(new Map([...searchRecs, ...remoteTracks].map((t) => [t.videoId, t])).values()),
         settings,
         limit: 12,
       }),
-    [history, likedTracks, remoteTracks, settings]
+    [history, likedTracks, remoteTracks, searchRecs, settings]
   );
 
   const keepListening = useMemo(
@@ -476,8 +476,8 @@ export function HomeView() {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="text-[26px] sm:text-[32px] font-bold tracking-tight leading-tight truncate">
-              {greeting}{profile?.display_name ? `, ${profile.display_name}` : ''}
+            <h1 className="text-[28px] sm:text-[32px] font-bold tracking-tight flex items-center gap-2 min-w-0">
+              <span className="truncate">{greeting}{profile?.display_name ? `, ${profile.display_name}` : ''}</span>
                 {profile?.display_name && isVerifiedDeveloper({ userId: user?.id, email: user?.email }) && <VerifiedBadge size={20} />}
             </h1>
             <p className="text-[13px] opacity-60 mt-0.5 truncate">
@@ -699,7 +699,7 @@ return (
 })()}
           {selectedMood === 'all' && <LeaderboardSection />}
     {selectedMood === 'all' && mostPlayed.length > 0 && (<section className="space-y-3"><h2 className="text-[20px] sm:text-[22px] font-bold tracking-tight">Paling Sering Kamu Putar</h2><div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-1">{mostPlayed.map(({ track, count }) => (<button key={`mp-${track.videoId}`} type="button" onClick={() => playTrack(track, mostPlayed.map((m) => m.track))} className="group w-[144px] sm:w-[160px] shrink-0 text-left space-y-2"><div className="relative aspect-square rounded-2xl overflow-hidden shadow-md bg-black/10 dark:bg-white/5"><ArtworkImage src={track.thumbnail} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /><span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/70 text-white backdrop-blur-md">{count}× diputar</span></div><div><p className="text-[13px] font-semibold truncate">{track.title}</p><p className="text-[11px] opacity-60 truncate">{track.artist}</p></div></button>))}</div></section>)}
-          {selectedMood === 'all' && searchHistory.length > 0 && searchRecs.length > 0 && (<section className="space-y-3"><h2 className="text-[20px] sm:text-[22px] font-bold tracking-tight">Sesuai Pencarianmu</h2><div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-1">{searchRecs.map((track, idx) => (<button key={`sr-${track.videoId}-${idx}`} type="button" onClick={() => playTrack(track, searchRecs)} className="group w-[144px] sm:w-[160px] shrink-0 text-left space-y-2"><div className="relative aspect-square rounded-2xl overflow-hidden shadow-md bg-black/10 dark:bg-white/5"><ArtworkImage src={track.thumbnail} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div><div><p className="text-[13px] font-semibold truncate">{track.title}</p><p className="text-[11px] opacity-60 truncate">{track.artist}</p></div></button>))}</div></section>)} {/* NEW VARIATION 1: Pilihan Teratas untuk Anda (Tall 3-Circle Artist Collage Cards) */}
+          {selectedMood === 'all' && searchRecs.length > 0 && (<section className="space-y-3"><h2 className="text-[20px] sm:text-[22px] font-bold tracking-tight">Sesuai Pencarian & Seleramu</h2><div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-1">{searchRecs.map((track, idx) => (<button key={`sr-${track.videoId}-${idx}`} type="button" onClick={() => playTrack(track, searchRecs)} className="group w-[144px] sm:w-[160px] shrink-0 text-left space-y-2"><div className="relative aspect-square rounded-2xl overflow-hidden shadow-md bg-black/10 dark:bg-white/5"><ArtworkImage src={track.thumbnail} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div><div><p className="text-[13px] font-semibold truncate">{track.title}</p><p className="text-[11px] opacity-60 truncate">{track.artist}</p></div></button>))}</div></section>)} {/* NEW VARIATION 1: Pilihan Teratas untuk Anda (Tall 3-Circle Artist Collage Cards) */}
           <TopPicksCollageSection
             tracks={editorialTrackPool}
             onPlayMix={(lead, queue) => playTrack(lead, queue)}
