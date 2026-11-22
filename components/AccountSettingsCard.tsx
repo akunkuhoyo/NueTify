@@ -114,12 +114,12 @@ export function AccountSettingsCard() {
         <div className="flex items-center gap-3.5">
           <UserAvatar src={avatarUrl || profile?.avatar_url} name={displayName || profile?.display_name} size={56} />
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-bold text-white truncate">
-              {profile?.display_name || 'Pengguna NueTify'}
+            <div className="flex items-center gap-1.5 min-w-0 text-[15px] font-bold text-white"><span className="truncate">
+              {profile?.display_name || 'Pengguna NueTify'}</span>
               {isVerifiedDeveloper({ userId: user.id, email: user.email }) && (
                 <VerifiedBadge size={16} />
               )}
-            </p>
+            </div>
             {isVerifiedDeveloper({ userId: user.id, email: user.email }) && (
               <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#E11D48]/15 text-[#FB7185] border border-[#E11D48]/30">
                 <VerifiedBadge size={12} />
