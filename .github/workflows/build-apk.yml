@@ -49,8 +49,8 @@ jobs:
         working-directory: android
         run: |
           gradle assembleRelease \
-            -PversionCode=${{ github.run_number }} \
-            -PversionName=1.0.${{ github.run_number }}
+            -PappVersionCode=${{ github.run_number }} \
+            -PappVersionName=1.0.${{ github.run_number }}
 
       - name: Prepare APK Artifact
         run: |
