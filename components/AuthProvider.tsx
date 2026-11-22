@@ -342,16 +342,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const signInWithGoogle = useCallback(async (): Promise<AuthActionResult> => {
+      const signInWithGoogle = useCallback(async (): Promise<AuthActionResult> => {
     const supabase = getSupabaseClient();
     if (!supabase) {
       return { ok: false, message: 'Konfigurasi server autentikasi belum tersedia.' };
     }
-    const redirectTo =
-      typeof window !== 'undefined' ? window.location.origin : undefined;
+    const isNativeAndroid =
+      typeof navigator !== 'undefined' &&
+      (navigator.userAgent || '').includes('NueTifyAndroid');
+    const redirectTo = isNativeAndroid
+      ? 'nuetify://auth/callback'
+      : typeof window !== 'undefined'
+        ? window.location.origin
+        : undefined;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo },
+      options: {
+        redirectTo,
+        queryParams: {
+          prompt: 'select_account',
+        },
+      },
     });
     if (error) {
       return { ok: false, message: error.message };
