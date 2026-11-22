@@ -342,7 +342,7 @@ export function SettingsView() {
     const a = document.createElement('a');
     const dateStamp = new Date().toISOString().slice(0, 10);
     a.href = url;
-    a.download = `sonara-backup-${dateStamp}.json`;
+    a.download = `nuetify-backup-${dateStamp}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1872,7 +1872,7 @@ export function SettingsView() {
               <PreferenceRow
                 icon={Upload}
                 title="Restore from Backup"
-                description="Import a previously exported Sonara JSON backup file"
+                description="Import a previously exported NueTify JSON backup file"
                 onClick={() => fileInputRef.current?.click()}
                 trailing={
                   <span className="px-3.5 py-1.5 rounded-full bg-black/[0.06] dark:bg-white/[0.08] text-[12px] font-semibold">
@@ -1912,7 +1912,7 @@ export function SettingsView() {
               title="Clear Listening History"
               description={
                 history.length > 0
-                  ? `Resets Sonara Speed Dial & Quick Picks (${history.length} plays)`
+                  ? `Resets NueTify Speed Dial & Quick Picks (${history.length} plays)`
                   : 'Listening history is already empty'
               }
               accentTint="#F43F5E"
@@ -2010,36 +2010,12 @@ export function SettingsView() {
               <ExternalLink className="w-4 h-4 opacity-50 shrink-0" />
             </a>
 
-            {/* Telegram */}
-            <a
-              href="https://t.me/sannnforums"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors"
-            >
-              <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                <span
-                  className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: '#38BDF822', color: '#38BDF8' }}
-                >
-                  <Send className="w-[18px] h-[18px]" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[14.5px] font-semibold leading-snug">
-                    Telegram
-                  </p>
-                  <p className="text-[12.5px] opacity-60 truncate mt-0.5">
-                    t.me/sannnforums
-                  </p>
-                </div>
-              </div>
-              <ExternalLink className="w-4 h-4 opacity-50 shrink-0" />
-            </a>
+           
 
             {/* Subtle, balanced attribution matching Settings typography */}
             <div className="px-4 py-3">
               <p className="text-[11.5px] font-medium tracking-wide opacity-55">
-                POWERED BY SANN404 FORUM GROUP
+                DIKEMBANGKAN OLEH TIM PT NUEVA GROUP
               </p>
             </div>
           </div>
@@ -2047,26 +2023,17 @@ export function SettingsView() {
       )}
 
       {/* 6. ABOUT */}
-      {showSection('about', 'about sonara version ytmusic-api vercel') && (
+      {showSection('about', 'about nuetify pt nueva group version ytmusic-api vercel') && (
         <section className="space-y-2.5">
           <h2 className="px-1 text-[12px] font-bold uppercase tracking-wider text-[var(--m3-primary)]">
             About
           </h2>
           <div className="rounded-[24px] metro-surface p-4 flex items-center gap-3.5">
-            <span
-              className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
-              style={{
-                backgroundColor:
-                  'color-mix(in srgb, var(--m3-primary) 16%, transparent)',
-                color: 'var(--m3-primary)',
-              }}
-            >
-              <Info className="w-5 h-5" />
-            </span>
+           <img src="/icon" alt="NueTify" className="w-11 h-11 rounded-2xl object-cover shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-bold">Sonara Music Client</p>
+              <p className="text-[15px] font-bold">NueTify</p>
               <p className="text-[12.5px] opacity-65 mt-0.5 leading-relaxed">
-                Powered by ytmusic-api · Sonara recommendation & queue engine · Dynamic Island Pro background player
+                Platform streaming musik 24 jam — Dikembangkan oleh Tim PT Nueva Group.
               </p>
             </div>
           </div>
