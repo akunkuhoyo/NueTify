@@ -101,7 +101,8 @@ export function AccountSettingsCard() {
       setConfirmPassword('');
     }
   };
-
+  const isGoogleUser = user.app_metadata?.provider === 'google';
+  
   return (
     <section className="space-y-3">
       <h2 className="px-1 text-[12px] font-bold uppercase tracking-wider text-[var(--m3-primary)]">
@@ -184,7 +185,14 @@ export function AccountSettingsCard() {
           {profileMsg && <p className="text-xs text-[#C0C0C0]">{profileMsg}</p>}
         </form>
 
-        <form onSubmit={handleChangePassword} className="space-y-2.5 pt-3 border-t border-[#C0C0C0]/10">
+        {isGoogleUser ? (
+          <div className="pt-3 border-t border-[#C0C0C0]/10">
+            <p className="text-xs text-[#A7A7A7]">
+              Akun Anda masuk menggunakan Google. Pengelolaan password dilakukan melalui Akun Google Anda.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleChangePassword} className="space-y-2.5 pt-3 border-t border-[#C0C0C0]/10">
           <p className="text-xs font-semibold text-white flex items-center gap-1.5">
             <KeyRound className="w-3.5 h-3.5 text-[#C0C0C0]" />
             <span>Perbarui Password</span>
@@ -216,6 +224,7 @@ export function AccountSettingsCard() {
           </button>
           {passwordMsg && <p className="text-xs text-[#C0C0C0]">{passwordMsg}</p>}
         </form>
+        )}
 
         <div className="pt-3 border-t border-[#C0C0C0]/10">
           <button
