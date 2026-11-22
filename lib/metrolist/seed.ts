@@ -154,6 +154,7 @@ export const DEFAULT_SETTINGS: PlayerSettings = {
   autoContinueRadio: true,
   backgroundPlay: true,
   autoPopoutIsland: false,
+  showDynamicIsland: false,
   playbackRate: 1,
   seekDurationSeconds: 10,
   keepPausedOnSongChange: false,
