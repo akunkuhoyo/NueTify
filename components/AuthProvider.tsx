@@ -117,7 +117,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select('id, display_name, avatar_url')
         .eq('id', authUser.id)
         .maybeSingle();
-
+      let resolvedDisplayName = fallback.display_name;
+      let resolvedAvatarUrl = fallback.avatar_url;
+      
       if (profRow) {
         const googlePic = extractGoogleAvatar(authUser);
         const resolvedAvatar =
@@ -132,6 +134,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           provider: fallback.provider,
         };
         setProfile(resolved);
+        resolvedDisplayName = resolved.display_name;
+        resolvedAvatarUrl = resolved.avatar_url;
       } else {
         await supabase.from('user_profiles').upsert(
           {
@@ -162,6 +166,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         lastPushedJsonRef.current = JSON.stringify(snapshot);
         setCloudMusicData(snapshot);
         setCloudRevision((r) => r + 1);
+      
+        if (Array.isArray(snapshot.history) && snapshot.history.length > 0) {
+          let totalSeconds = 0;
+          for (const ev of snapshot.history as Array<any>) {
+            totalSeconds +=
+              Number(
+                ev?.durationListenedSec ??
+                  ev?.durationSec ??
+                  ev?.track?.duration ??
+                  ev?.duration ??
+                  180
+              ) || 180;
+          }
+          const totalPlays = snapshot.history.length;
+          try {
+            await supabase.from('listening_leaderboard').upsert(
+              {
+                user_id: authUser.id,
+                display_name: resolvedDisplayName,
+                avatar_url: resolvedAvatarUrl,
+                total_seconds: Math.max(0, Math.floor(totalSeconds)),
+                total_plays: totalPlays,
+                updated_at: new Date().toISOString(),
+              },
+              { onConflict: 'user_id' }
+            );
+          } catch {
+            // ignore leaderboard sync errors
+          }
+        }
       }
       setSyncStatus('synced');
     } catch {
