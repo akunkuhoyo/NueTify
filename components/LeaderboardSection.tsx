@@ -242,13 +242,13 @@ export function LeaderboardSection() {
                           size={40}
                         />
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-bold text-white truncate">
-                            {entry.display_name || 'Pengguna NueTify'}
+                          <div className="flex items-center gap-1.5 min-w-0 text-sm font-bold text-white"><span className="truncate">
+                            {entry.display_name || 'Pengguna NueTify'}</span>
                       {isVerifiedDeveloper({
                         userId: entry.user_id,
                         serverVerified: entry.is_verified,
                       }) && <VerifiedBadge size={15} />}
-                          </p>
+                          </div>
                           <p className="text-xs text-[#8E8E93]">
                             {entry.total_plays} kali putar
                           </p>
@@ -328,13 +328,13 @@ export function LeaderboardSection() {
                     size={36}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13.5px] font-bold text-white truncate">
-                      {entry.display_name || 'Pengguna NueTify'}
+                    <div className="flex items-center gap-1.5 min-w-0 text-[13.5px] font-bold text-white"><span className="truncate">
+                      {entry.display_name || 'Pengguna NueTify'}</span>
                       {isVerifiedDeveloper({
                         userId: entry.user_id,
                         serverVerified: entry.is_verified,
                       }) && <VerifiedBadge size={15} />}
-                    </p>
+                    </div>
                     <p className="text-[11px] text-[#8E8E93]">
                       {entry.total_plays} kali putar
                     </p>
