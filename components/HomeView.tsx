@@ -21,6 +21,7 @@ import {
   User,
 } from 'lucide-react';
 import { useMusic } from './MusicProvider';
+import { useAuth } from './AuthProvider';
 import { ArtworkImage } from './ArtworkImage';
 import { TrackContextMenu } from './TrackContextMenu';
 import {
@@ -163,14 +164,18 @@ export function HomeView() {
     settings,
     setActiveTab,
     startRadio,
+  searchHistory,
   } = useMusic();
-
+  const { profile } = useAuth();
   const [homeData, setHomeData] = useState<HomePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedMood, setSelectedMood] = useState<string>('all');
   const [moodTracks, setMoodTracks] = useState<Track[] | null>(null);
   const [moodLoading, setMoodLoading] = useState(false);
-
+  const [searchRecs, setSearchRecs] = useState<Track[]>([]);
+  useEffect(() => { const q = searchHistory?.[0]; if (!q) { setSearchRecs([]); return; } let cancelled = false; fetch(`/api/music/search?q=${encodeURIComponent(q)}`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (cancelled || !d) return; const list = Array.isArray(d.tracks) ? d.tracks : Array.isArray(d.songs) ? d.songs : Array.isArray(d.results) ? d.results : Array.isArray(d) ? d : []; setSearchRecs(list.slice(0, 8)); }).catch(() => {}); return () => { cancelled = true; }; }, [searchHistory?.[0]]);
+  const mostPlayed = useMemo(() => { if (!history || history.length === 0) return []; const counts = new Map<string, { track: Track; count: number }>(); for (const t of history) { const key = t?.videoId; if (!key) continue; const cur = counts.get(key); if (cur) cur.count += 1; else counts.set(key, { track: t, count: 1 }); } return Array.from(counts.values()).sort((a, b) => b.count - a.count).slice(0, 8); }, [history]);
+  
   // Trending by genre state (matching IMG_2148 reference)
   const [selectedGenreId, setSelectedGenreId] = useState<string>('pop');
   const [genreTracksMap, setGenreTracksMap] = useState<Record<string, Track[]>>({});
@@ -470,10 +475,10 @@ export function HomeView() {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-[26px] sm:text-[32px] font-bold tracking-tight leading-tight truncate">
-              {greeting}
+              {greeting}{profile?.display_name ? `, ${profile.display_name}` : ''}
             </h1>
             <p className="text-[13px] opacity-60 mt-0.5 truncate">
-              Curated mixes & live YouTube Music picks
+              Streaming musik 24 jam, dipersonalisasi khusus untukmu · NueTify
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -689,7 +694,8 @@ return (
   </section>
 );
 })()}
-          {/* NEW VARIATION 1: Pilihan Teratas untuk Anda (Tall 3-Circle Artist Collage Cards) */}
+    {selectedMood === 'all' && mostPlayed.length > 0 && (<section className="space-y-3"><h2 className="text-[20px] sm:text-[22px] font-bold tracking-tight">Paling Sering Kamu Putar</h2><div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-1">{mostPlayed.map(({ track, count }) => (<button key={`mp-${track.videoId}`} type="button" onClick={() => playTrack(track, mostPlayed.map((m) => m.track))} className="group w-[144px] sm:w-[160px] shrink-0 text-left space-y-2"><div className="relative aspect-square rounded-2xl overflow-hidden shadow-md bg-black/10 dark:bg-white/5"><ArtworkImage src={track.thumbnail} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /><span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/70 text-white backdrop-blur-md">{count}× diputar</span></div><div><p className="text-[13px] font-semibold truncate">{track.title}</p><p className="text-[11px] opacity-60 truncate">{track.artist}</p></div></button>))}</div></section>)}
+          {selectedMood === 'all' && searchHistory.length > 0 && searchRecs.length > 0 && (<section className="space-y-3"><h2 className="text-[20px] sm:text-[22px] font-bold tracking-tight">Sesuai Pencarianmu</h2><div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-1">{searchRecs.map((track, idx) => (<button key={`sr-${track.videoId}-${idx}`} type="button" onClick={() => playTrack(track, searchRecs)} className="group w-[144px] sm:w-[160px] shrink-0 text-left space-y-2"><div className="relative aspect-square rounded-2xl overflow-hidden shadow-md bg-black/10 dark:bg-white/5"><ArtworkImage src={track.thumbnail} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div><div><p className="text-[13px] font-semibold truncate">{track.title}</p><p className="text-[11px] opacity-60 truncate">{track.artist}</p></div></button>))}</div></section>)} {/* NEW VARIATION 1: Pilihan Teratas untuk Anda (Tall 3-Circle Artist Collage Cards) */}
           <TopPicksCollageSection
             tracks={editorialTrackPool}
             onPlayMix={(lead, queue) => playTrack(lead, queue)}
