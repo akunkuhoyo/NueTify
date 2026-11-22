@@ -370,8 +370,8 @@ export function SettingsView() {
     settings.theme === 'dark'
       ? settings.pureBlack
         ? 'Pure Black AMOLED'
-        : 'Sonara Dark'
-      : 'Sonara Light';
+        : 'NueTify Dark'
+      : 'NueTify Light';
 
   return (
     <div className="space-y-6 pb-10 max-w-4xl mx-auto">
@@ -440,7 +440,7 @@ export function SettingsView() {
       {/* 1. APPEARANCE */}
       {showSection(
         'appearance',
-        'appearance theme dark light pure black amoled dynamic color accent palette sonara navigation bar dock style liquid glass default android player background blurred artwork gradient animated slider squiggly wavy slim corner radius swipe gesture expressive controls classic ambient aod clock bold minimal stacked shape squircle circle diamond'
+        'appearance theme dark light pure black amoled dynamic color accent palette nuetify navigation bar dock style liquid glass default android player background blurred artwork gradient animated slider squiggly wavy slim corner radius swipe gesture expressive controls classic ambient aod clock bold minimal stacked shape squircle circle diamond'
       ) && (
         <section className="space-y-2.5">
           <h2 className="px-1 text-[12px] font-bold uppercase tracking-wider text-[var(--m3-primary)]">
@@ -1947,7 +1947,7 @@ export function SettingsView() {
       {/* 5. DEVELOPER COMMUNITY */}
       {showSection(
         'community',
-        'community komunitas developer saluran whatsapp tiktok telegram sannforum sann404 forum group'
+        'community komunitas developer saluran whatsapp tiktok telegram nuetify pt nueva group nuevagroup'
       ) && (
         <section data-testid="developer-community" className="space-y-2.5">
           <h2 className="px-1 text-[12px] font-bold uppercase tracking-wider text-[var(--m3-primary)]">
@@ -1956,7 +1956,7 @@ export function SettingsView() {
           <div className="rounded-[24px] metro-surface overflow-hidden divide-y divide-black/[0.06] dark:divide-white/[0.06]">
             {/* Saluran WhatsApp */}
             <a
-              href="https://whatsapp.com/channel/0029Vb7vOOyLY6cyTRQF1M06"
+              href="https://whatsapp.com/channel/0029Vb8YaePElagtkgxVwW1e"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors"
@@ -1973,7 +1973,7 @@ export function SettingsView() {
                     Saluran WhatsApp
                   </p>
                   <p className="text-[12.5px] opacity-60 truncate mt-0.5">
-                    whatsapp.com/channel/0029Vb7vOOyLY6cyTRQF1M06
+                    whatsapp.com/channel/0029Vb8YaePElagtkgxVwW1e
                   </p>
                 </div>
               </div>
@@ -1982,7 +1982,7 @@ export function SettingsView() {
 
             {/* TikTok */}
             <a
-              href="https://www.tiktok.com/@sannforum.id"
+              href="https://www.tiktok.com/@nuevagroup"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-black/[0.03] dark:hover:bg-white/[0.04] transition-colors"
@@ -2003,7 +2003,7 @@ export function SettingsView() {
                     TikTok
                   </p>
                   <p className="text-[12.5px] opacity-60 truncate mt-0.5">
-                    @sannforum.id
+                    @nuevagroup
                   </p>
                 </div>
               </div>
