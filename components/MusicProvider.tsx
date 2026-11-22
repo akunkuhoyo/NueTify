@@ -1034,6 +1034,53 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
     }
   }, [currentTrack, currentTime, duration, settings.playbackRate]);
 
+  // Sync active track state to Android native lockscreen bridge
+  useEffect(() => {
+    const liked = currentTrack ? likedTracks.some((t) => t.videoId === currentTrack.videoId) : false;
+    (
+      window as unknown as {
+        NueTifyNative?: {
+          updateMediaState: (t: string, a: string, p: boolean, l: boolean, r: string, art: string) => void;
+        };
+      }
+    ).NueTifyNative?.updateMediaState(
+      currentTrack?.title ?? '',
+      currentTrack?.artist ?? '',
+      isPlaying,
+      liked,
+      queueState.repeat,
+      currentTrack?.thumbnail ?? ''
+    );
+  }, [currentTrack, isPlaying, likedTracks, queueState.repeat]);
+
+  // Handle Android native lockscreen notification actions
+  useEffect(() => {
+    const onNativeAction = (e: Event) => {
+      const detail = (e as CustomEvent<string | { action?: string }>).detail;
+      const action = typeof detail === 'string' ? detail : detail?.action;
+      switch (action) {
+        case 'PLAY_PAUSE':
+          togglePlayPause();
+          break;
+        case 'NEXT':
+          nextTrack(true);
+          break;
+        case 'PREV':
+          prevTrack();
+          break;
+        case 'LIKE':
+          if (currentTrack) toggleLike(currentTrack);
+          break;
+        case 'REPEAT':
+          cycleRepeat();
+          break;
+      }
+    };
+    window.addEventListener('nuetify-native-action', onNativeAction);
+    return () => window.removeEventListener('nuetify-native-action', onNativeAction);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [togglePlayPause, nextTrack, prevTrack, currentTrack]);
+
   const setVolume = useCallback((vol: number) => {
     const clamped = Math.max(0, Math.min(100, vol));
     setVolumeState(clamped);
