@@ -478,7 +478,7 @@ export function HomeView() {
               {greeting}{profile?.display_name ? `, ${profile.display_name}` : ''}
             </h1>
             <p className="text-[13px] opacity-60 mt-0.5 truncate">
-              Streaming musik 24 jam, dipersonalisasi khusus untukmu · NueTify
+              Selamat datang di NueTify!
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
