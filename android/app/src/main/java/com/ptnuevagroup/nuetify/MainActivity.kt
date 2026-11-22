@@ -79,7 +79,26 @@ class MainActivity : AppCompatActivity() {
             settings.mediaPlaybackRequiresUserGesture = false
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             settings.userAgentString = "${settings.userAgentString} NueTifyAndroid/1.2"
-            webViewClient = WebViewClient()
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): Boolean {
+                    val uri = request?.url ?: return false
+                    val url = uri.toString()
+                    val isOAuth =
+                        [invalid URL]"accounts.google.com") == true ||
+                        url.contains("/auth/v1/authorize")
+                    if (isOAuth) {
+                        val customTabs = CustomTabsIntent.Builder()
+                            .setShowTitle(true)
+                            .build()
+                        customTabs.launchUrl(this@MainActivity, uri)
+                        return true
+                    }
+                    return false
+                }
+            }
             webChromeClient = WebChromeClient()
             addJavascriptInterface(NativeBridge(), "NueTifyNative")
         }
