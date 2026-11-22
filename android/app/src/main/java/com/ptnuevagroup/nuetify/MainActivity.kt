@@ -1,5 +1,8 @@
 package com.ptnuevagroup.nuetify
 
+import android.net.Uri
+import android.webkit.WebResourceRequest
+import androidx.browser.customtabs.CustomTabsIntent
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.ContentValues
