@@ -428,6 +428,6 @@ export const EQUALIZER_PRESETS: Record<
 
 export function clampEqBand(db: number): number {
   if (!Number.isFinite(db)) return 0;
-  return Math.max(-12, Math.min(12, Math.round(db)));
+  return Math.max(-12, Math.min(25, Math.round(db)));
 }
 
