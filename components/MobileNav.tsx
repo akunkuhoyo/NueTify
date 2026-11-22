@@ -53,37 +53,58 @@ interface DragLensState {
 export function MobileTopBar() {
   const { setActiveTab, activeTab, openDetail } = useMusic();
   const { profile, isGuest } = useAuth();
-  return (
-    <header className="lg:hidden sticky top-0 z-30 h-[52px] px-3 flex items-center justify-between bg-[var(--m3-bg)]/95 border-b border-[var(--m3-border)]">
+    return (
+    <header className="md:hidden sticky top-0 z-30 h-[64px] px-4 flex items-center justify-between bg-[#121212] border-b border-[#C0C0C0]/15">
       <button
         type="button"
         onClick={() => {
           setActiveTab('home');
           openDetail(null);
         }}
-        className="flex items-center gap-2 text-base font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0"
+        className="flex items-center gap-3 text-left shrink-0 active:scale-[0.98] transition-transform"
       >
-        <img src="/icon" alt="NueTify" className="w-7 h-7 rounded-lg object-cover shrink-0" />
-        NueTify
+        <img
+          src="/icon"
+          alt="NueTify"
+          className="w-9 h-9 rounded-xl object-cover shrink-0 ring-1 ring-[#C0C0C0]/30"
+        />
+        <div className="flex flex-col leading-none">
+          <span className="text-[19px] font-extrabold tracking-tight text-white">
+            NueTify
+          </span>
+          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[#A7A7A7] mt-0.5">
+            PT Nueva Group
+          </span>
+        </div>
       </button>
 
-      {/* Center slot intentionally stays open for the top-center Dynamic Island */}
-      <div className="flex items-center gap-1.5">
-<button type="button" onClick={() => { setActiveTab('settings'); openDetail(null); }} aria-label="Profil Pengguna"><UserAvatar src={profile?.avatar_url} name={profile?.display_name || (isGuest ? 'Tamu' : 'NueTify')} size={28} /></button>
-        
-      <button
-        type="button"
-        onClick={() => setActiveTab('settings')}
-        aria-label="Open settings"
-        className={cn(
-          'min-h-[40px] min-w-[40px] flex items-center justify-center rounded-full transition-colors',
-          activeTab === 'settings'
-            ? 'text-[var(--m3-primary)] bg-[var(--m3-primary-soft)]'
-            : 'text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10'
-        )}
-      >
-        <Settings className="w-5 h-5" />
-      </button>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('settings');
+            openDetail(null);
+          }}
+          aria-label="Profil Pengguna"
+          className="p-0.5 rounded-full hover:ring-2 hover:ring-[#C0C0C0]/40 transition-all"
+        >
+          <UserAvatar
+            src={profile?.avatar_url}
+            name={profile?.display_name || (isGuest ? 'Tamu' : 'NueTify')}
+            size={34}
+          />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('settings');
+            openDetail(null);
+          }}
+          aria-label="Settings"
+          className="w-9 h-9 rounded-full bg-[#1E1E1E] border border-[#C0C0C0]/15 flex items-center justify-center text-[#E5E5E5] hover:bg-[#2A2A2A] hover:text-white transition-colors"
+        >
+          <Settings className="w-[18px] h-[18px]" />
+        </button>
       </div>
     </header>
   );
