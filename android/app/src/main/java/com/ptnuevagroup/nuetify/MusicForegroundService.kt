@@ -58,8 +58,8 @@ class MusicForegroundService : Service() {
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
     private val executor = Executors.newSingleThreadExecutor()
-
-private val updateScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
+    private var hasAudioFocus = false
+    private val updateScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
     private var currentTitle = "NueTify"
     private var currentArtist = "PT Nueva Group"
     private var currentIsPlaying = false
@@ -120,7 +120,7 @@ private val updateScheduler: ScheduledExecutorService = Executors.newSingleThrea
     }
 
     private fun requestAudioFocus() {
-        val am = audioManager ?: return
+        if (hasAudioFocus) return; val am = audioManager ?: return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val attrs = AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -135,16 +135,16 @@ private val updateScheduler: ScheduledExecutorService = Executors.newSingleThrea
         } else {
             @Suppress("DEPRECATION")
             am.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
-        }
+        }; hasAudioFocus = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_SHUFFLE -> onActionListener?.invoke("SHUFFLE")
+            ACTION_SHUFFLE -> { onActionListener?.invoke("SHUFFLE"); return START_STICKY }
             ACTION_PREV -> onActionListener?.invoke("PREV")
             ACTION_PLAY_PAUSE -> onActionListener?.invoke("PLAY_PAUSE")
             ACTION_NEXT -> onActionListener?.invoke("NEXT")
-            ACTION_REPEAT -> onActionListener?.invoke("REPEAT")
+            ACTION_REPEAT -> { onActionListener?.invoke("REPEAT"); return START_STICKY }
             ACTION_POSITION -> {
                 currentPositionMs = intent.getLongExtra("positionMs", currentPositionMs)
                 val newDur = intent.getLongExtra("durationMs", currentDurationMs)
@@ -414,7 +414,7 @@ private val updateScheduler: ScheduledExecutorService = Executors.newSingleThrea
         mediaSession.release()
         executor.shutdownNow()
         updateScheduler.shutdownNow()
-        super.onDestroy()
+        hasAudioFocus = false; super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
