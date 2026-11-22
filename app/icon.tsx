@@ -1,30 +1,16 @@
-import { ImageResponse } from 'next/og';
+export const runtime = 'nodejs';
+export const contentType = 'image/jpeg';
 
-export const size = { width: 512, height: 512 };
-export const contentType = 'image/png';
+const LOGO_URL =
+  'https://raw.githubusercontent.com/nuenime/Prompt/refs/heads/main/IMG-20261014-WA0188.jpg';
 
-export default function Icon() {
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#000000',
-        }}
-      >
-      <img
-src="https://raw.githubusercontent.com/nuenime/Prompt/refs/heads/main/IMG-20261014-WA0188.jpg"
-alt="NueTify"
-width={512}
-height={512}
-style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-/>
-      </div>
-    ),
-    { ...size }
-  );
+export default async function Icon() {
+  const res = await fetch(LOGO_URL, { cache: 'force-cache' });
+  const buf = await res.arrayBuffer();
+  return new Response(buf, {
+    headers: {
+      'Content-Type': res.headers.get('content-type') || 'image/jpeg',
+      'Cache-Control': 'public, max-age=86400, immutable',
+    },
+  });
 }
