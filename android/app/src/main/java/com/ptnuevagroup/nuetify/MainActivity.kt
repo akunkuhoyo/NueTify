@@ -135,7 +135,8 @@ class MainActivity : AppCompatActivity() {
         if (::webView.isInitialized) {
             webView.onResume()
             webView.resumeTimers()
-        }
+        } 
+        CookieManager.getInstance().flush()
     }
 
     override fun onStop() {
@@ -143,7 +144,8 @@ class MainActivity : AppCompatActivity() {
         if (::webView.isInitialized) {
             webView.onResume()
             webView.resumeTimers()
-        }
+        } 
+        CookieManager.getInstance().flush()
     }
 
     override fun onDestroy() {
