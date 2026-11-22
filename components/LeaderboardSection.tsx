@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Trophy, ChevronRight, Clock, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { getSupabaseClient } from '@/lib/cloud/supabaseClient';
+import { useAuth } from './AuthProvider';
+import { useMusic } from './MusicProvider';
 import { UserAvatar } from './UserAvatar';
 
 export interface LeaderboardEntry {
@@ -25,9 +28,34 @@ export function formatListeningDuration(totalSeconds: number): string {
 }
 
 export function LeaderboardSection() {
+  const { user, profile } = useAuth();
+  const { history } = useMusic();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showFull, setShowFull] = useState(false);
+
+  const fetchTop50 = useCallback(async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    try {
+      const { data } = await supabase
+        .from('listening_leaderboard')
+        .select('user_id, display_name, avatar_url, total_seconds, total_plays')
+        .gt('total_seconds', 0)
+        .order('total_seconds', { ascending: false })
+        .limit(50);
+      if (Array.isArray(data)) {
+        setEntries(data as LeaderboardEntry[]);
+      }
+    } catch {
+      // ignore fetch errors
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
@@ -35,25 +63,6 @@ export function LeaderboardSection() {
       setLoading(false);
       return;
     }
-
-    let mounted = true;
-    const fetchTop50 = async () => {
-      try {
-        const { data } = await supabase
-          .from('listening_leaderboard')
-          .select('user_id, display_name, avatar_url, total_seconds, total_plays')
-          .gt('total_seconds', 0)
-          .order('total_seconds', { ascending: false })
-          .limit(50);
-        if (mounted && Array.isArray(data)) {
-          setEntries(data as LeaderboardEntry[]);
-        }
-      } catch {
-        // ignore fetch errors
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
 
     void fetchTop50();
 
@@ -69,12 +78,164 @@ export function LeaderboardSection() {
       .subscribe();
 
     return () => {
-      mounted = false;
       void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchTop50]);
+
+  // Pastikan riwayat dengar user yang login langsung tersinkron ke tabel leaderboard
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase || !user || !Array.isArray(history) || history.length === 0) return;
+
+    let totalSec = 0;
+    for (const ev of history) {
+      const rec = ev as unknown as {
+        durationListenedSec?: number;
+        durationSec?: number;
+        duration?: number;
+        track?: { duration?: number; durationSec?: number };
+      };
+      const sec = Number(
+        rec?.durationListenedSec ??
+          rec?.durationSec ??
+          rec?.track?.durationSec ??
+          rec?.track?.duration ??
+          rec?.duration ??
+          180
+      );
+      totalSec += Number.isFinite(sec) && sec > 0 ? sec : 180;
+    }
+
+    const displayName =
+      profile?.display_name ||
+      String(user.user_metadata?.display_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Pengguna NueTify');
+    const avatarUrl =
+      profile?.avatar_url ||
+      String(user.user_metadata?.avatar_url || user.user_metadata?.picture || '');
+
+    let cancelled = false;
+    void supabase
+      .from('listening_leaderboard')
+      .upsert(
+        {
+          user_id: user.id,
+          display_name: displayName,
+          avatar_url: avatarUrl,
+          total_seconds: Math.max(1, Math.floor(totalSec)),
+          total_plays: history.length,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      )
+      .then(() => {
+        if (!cancelled) void fetchTop50();
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, profile?.display_name, profile?.avatar_url, history, fetchTop50]);
 
   const top3 = entries.slice(0, 3);
+
+  const fullOverlay =
+    showFull && typeof document !== 'undefined'
+      ? createPortal(
+          <div className="fixed inset-0 z-[95] bg-[#121212] text-[#E5E5E5] overflow-y-auto px-4 pt-5 pb-16">
+            <div className="max-w-2xl mx-auto space-y-5">
+              <header className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowFull(false)}
+                    aria-label="Kembali ke Beranda"
+                    className="w-10 h-10 rounded-full bg-[#181818] border border-[#C0C0C0]/20 flex items-center justify-center text-[#E5E5E5] hover:bg-[#242424] transition-colors shrink-0"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                  </button>
+                  <div className="min-w-0">
+                    <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight truncate">
+                      Leaderboard NueTify
+                    </h1>
+                    <p className="text-xs text-[#A7A7A7]">
+                      Top 50 Pendengar Lagu Terlama · Real-Time
+                    </p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#181818] border border-[#C0C0C0]/20 text-xs font-bold text-[#C0C0C0] shrink-0">
+                  <Trophy className="w-3.5 h-3.5" />
+                  <span>Top 50</span>
+                </span>
+              </header>
+
+              <div className="rounded-2xl bg-[#181818] border border-[#C0C0C0]/15 p-3.5 flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-[#C0C0C0] shrink-0 mt-0.5" />
+                <p className="text-xs text-[#B3B3B3] leading-relaxed">
+                  Syarat masuk papan peringkat: login dengan akun <span className="text-white font-semibold">NueTify</span> dan raih posisi <span className="text-white font-semibold">minimal Top 50</span> durasi mendengarkan lagu terlama. Musik tetap berjalan normal saat melihat leaderboard.
+                </p>
+              </div>
+
+              {loading ? (
+                <div className="rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 p-8 text-center text-sm text-[#8E8E93]">
+                  Memuat Top 50 Leaderboard...
+                </div>
+              ) : entries.length === 0 ? (
+                <div className="rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 p-8 text-center space-y-2">
+                  <Trophy className="w-8 h-8 text-[#C0C0C0] mx-auto" />
+                  <p className="text-sm font-semibold text-white">
+                    Belum ada pendengar di Top 50
+                  </p>
+                  <p className="text-xs text-[#A7A7A7]">
+                    Login dan mulai dengarkan lagu di NueTify untuk menempati peringkat #1!
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 divide-y divide-[#C0C0C0]/10 overflow-hidden">
+                  {entries.map((entry, idx) => {
+                    const rank = idx + 1;
+                    return (
+                      <div
+                        key={entry.user_id}
+                        className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-[#202020] transition-colors"
+                      >
+                        <span
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 ${
+                            rank === 1
+                              ? 'bg-[#C0C0C0] text-black'
+                              : rank <= 3
+                                ? 'bg-[#282828] text-white border border-[#C0C0C0]/35'
+                                : 'bg-[#121212] text-[#A7A7A7] border border-[#C0C0C0]/10'
+                          }`}
+                        >
+                          #{rank}
+                        </span>
+                        <UserAvatar
+                          src={entry.avatar_url}
+                          name={entry.display_name}
+                          size={40}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-white truncate">
+                            {entry.display_name || 'Pengguna NueTify'}
+                          </p>
+                          <p className="text-xs text-[#8E8E93]">
+                            {entry.total_plays} kali putar
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-[#C0C0C0] shrink-0">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{formatListeningDuration(entry.total_seconds)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )
+      : null;
 
   return (
     <>
@@ -154,100 +315,7 @@ export function LeaderboardSection() {
         )}
       </section>
 
-      {showFull && (
-        <div className="fixed inset-0 z-[70] bg-[#121212] text-[#E5E5E5] overflow-y-auto px-4 pt-5 pb-32">
-          <div className="max-w-2xl mx-auto space-y-5">
-            <header className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <button
-                  type="button"
-                  onClick={() => setShowFull(false)}
-                  aria-label="Kembali ke Beranda"
-                  className="w-10 h-10 rounded-full bg-[#181818] border border-[#C0C0C0]/20 flex items-center justify-center text-[#E5E5E5] hover:bg-[#242424] transition-colors shrink-0"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
-                <div className="min-w-0">
-                  <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight truncate">
-                    Leaderboard NueTify
-                  </h1>
-                  <p className="text-xs text-[#A7A7A7]">
-                    Top 50 Pendengar Lagu Terlama · Real-Time
-                  </p>
-                </div>
-              </div>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#181818] border border-[#C0C0C0]/20 text-xs font-bold text-[#C0C0C0] shrink-0">
-                <Trophy className="w-3.5 h-3.5" />
-                <span>Top 50</span>
-              </span>
-            </header>
-
-            <div className="rounded-2xl bg-[#181818] border border-[#C0C0C0]/15 p-3.5 flex items-start gap-2.5">
-              <ShieldCheck className="w-4 h-4 text-[#C0C0C0] shrink-0 mt-0.5" />
-              <p className="text-xs text-[#B3B3B3] leading-relaxed">
-                Syarat masuk papan peringkat: login dengan akun <span className="text-white font-semibold">NueTify</span> dan raih posisi <span className="text-white font-semibold">minimal Top 50</span> durasi mendengarkan lagu terlama. Musik tetap berjalan normal saat melihat leaderboard.
-              </p>
-            </div>
-
-            {loading ? (
-              <div className="rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 p-8 text-center text-sm text-[#8E8E93]">
-                Memuat Top 50 Leaderboard...
-              </div>
-            ) : entries.length === 0 ? (
-              <div className="rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 p-8 text-center space-y-2">
-                <Trophy className="w-8 h-8 text-[#C0C0C0] mx-auto" />
-                <p className="text-sm font-semibold text-white">
-                  Belum ada pendengar di Top 50
-                </p>
-                <p className="text-xs text-[#A7A7A7]">
-                  Login dan mulai dengarkan lagu di NueTify untuk menempati peringkat #1!
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 divide-y divide-[#C0C0C0]/10 overflow-hidden">
-                {entries.map((entry, idx) => {
-                  const rank = idx + 1;
-                  return (
-                    <div
-                      key={entry.user_id}
-                      className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-[#202020] transition-colors"
-                    >
-                      <span
-                        className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 ${
-                          rank === 1
-                            ? 'bg-[#C0C0C0] text-black'
-                            : rank <= 3
-                              ? 'bg-[#282828] text-white border border-[#C0C0C0]/35'
-                              : 'bg-[#121212] text-[#A7A7A7] border border-[#C0C0C0]/10'
-                        }`}
-                      >
-                        #{rank}
-                      </span>
-                      <UserAvatar
-                        src={entry.avatar_url}
-                        name={entry.display_name}
-                        size={40}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-white truncate">
-                          {entry.display_name || 'Pengguna NueTify'}
-                        </p>
-                        <p className="text-xs text-[#8E8E93]">
-                          {entry.total_plays} kali putar
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs font-bold text-[#C0C0C0] shrink-0">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{formatListeningDuration(entry.total_seconds)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {fullOverlay}
     </>
   );
 }
