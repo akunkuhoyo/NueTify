@@ -12,6 +12,7 @@ export function getSupabaseClient(): SupabaseClient | null {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+        flowType: 'implicit',
     },
   });
   return cachedClient;
