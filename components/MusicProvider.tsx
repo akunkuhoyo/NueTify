@@ -916,7 +916,16 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
       settingsRef.current.keepPausedOnSongChange &&
       !intendedPlayingRef.current;
     setQueueState((prev) => {
-      const res = advanceQueue(prev, 'next', { manual });
+      const res = advanceQueue(prev, 'next', { manual }); 
+      if (!manual && prev.repeat === 'one') {
+       ytPlayerRef.current?.seekTo(0, true);
+       ytPlayerRef.current?.playVideo();
+       setCurrentTime(0);
+       userPausedRef.current = false;
+       intendedPlayingRef.current = true;
+       setIsPlaying(true);
+       return res.state;
+      } 
       if (res.ended || stayPaused) {
         userPausedRef.current = true;
         intendedPlayingRef.current = false;
