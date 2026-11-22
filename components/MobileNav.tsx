@@ -59,8 +59,9 @@ export function MobileTopBar() {
           setActiveTab('home');
           openDetail(null);
         }}
-        className="text-base font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0"
+        className="flex items-center gap-2 text-base font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0"
       >
+        <img src="/icon" alt="NueTify" className="w-7 h-7 rounded-lg object-cover shrink-0" />
         NueTify
       </button>
 
