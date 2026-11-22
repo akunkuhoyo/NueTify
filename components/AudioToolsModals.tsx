@@ -53,7 +53,7 @@ export function EqualizerSheet({
 
   const handleBandChange = (index: number, rawValue: number) => {
     const next = [...bands];
-    next[index] = clampEqBand(rawValue);
+    next[index] = Math.max(-12, Math.min(25, Math.round(rawValue)));
     updateSettings({
       equalizerPreset: 'CUSTOM',
       equalizerBands: next,
@@ -170,15 +170,15 @@ export function EqualizerSheet({
               {/* 5-Band Frequency Contour Matrix */}
               <div className="rounded-3xl bg-black/[0.03] dark:bg-white/[0.04] p-4 sm:p-5 space-y-4">
                 <div className="flex items-center justify-between text-[11px] font-mono-nums text-slate-500 dark:text-slate-400">
-                  <span>+12 dB</span>
-                  <span>0 dB Reference</span>
                   <span>-12 dB</span>
+                  <span>0 dB Reference</span>
+                  <span>+25 dB</span>
                 </div>
 
                 <div className="space-y-3.5">
                   {EQ_BAND_LABELS.map((freq, idx) => {
                     const val = bands[idx] ?? 0;
-                    const normalizedPct = ((val + 12) / 24) * 100;
+                    const normalizedPct = ((val + 12) / 37) * 100;
                     return (
                       <div key={freq} className="space-y-1">
                         <div className="flex items-center justify-between text-xs">
@@ -209,7 +209,7 @@ export function EqualizerSheet({
                         <input
                           type="range"
                           min={-12}
-                          max={12}
+                          max={25}
                           step={1}
                           value={val}
                           onChange={(e) => handleBandChange(idx, Number(e.target.value))}
