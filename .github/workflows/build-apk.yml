@@ -24,16 +24,57 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Download NueTify launcher icon
+      - name: Generate NueTify N-Circle Launcher Icon
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
-          curl -sSL "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRV5isL7Sh5nl63FMY7WQDyzB8kQ9TI5S4Di3y6hP--L5t6RQHfGVQpueU&s=10" -o /tmp/icon_raw
-          for spec in "mipmap-mdpi:48" "mipmap-hdpi:72" "mipmap-xhdpi:96" "mipmap-xxhdpi:144" "mipmap-xxxhdpi:192"; do
-            d="${spec%%:*}"
-            sz="${spec##*:}"
-            mkdir -p "android/app/src/main/res/$d"
-            ffmpeg -y -loglevel error -i /tmp/icon_raw -vf "scale=${sz}:${sz}:force_original_aspect_ratio=increase,crop=${sz}:${sz}" "android/app/src/main/res/$d/ic_launcher.png"
-          done
+          sudo apt-get update -qq && sudo apt-get install -y -qq python3-pil
+          python3 - << 'EOF'
+          import os
+          from PIL import Image, ImageDraw
+
+          S = 1024
+          mask = Image.new("L", (S, S), 0)
+          ImageDraw.Draw(mask).ellipse((0, 0, S - 1, S - 1), fill=255)
+
+          bg = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+          ImageDraw.Draw(bg).ellipse((0, 0, S - 1, S - 1), fill=(0, 0, 0, 255))
+
+          fg = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+          d = ImageDraw.Draw(fg)
+
+          lx1, lx2 = int(0.30 * S), int(0.375 * S)
+          ty, by = int(0.27 * S), int(0.73 * S)
+          d.rectangle((lx1, ty, lx2, by), fill=(255, 255, 255, 255))
+
+          w = int(0.075 * S)
+          d.polygon([
+              (lx1, ty),
+              (lx2, ty),
+              (S, int(S * 1.12)),
+              (S - w, int(S * 1.12))
+          ], fill=(255, 255, 255, 255))
+
+          rx1, rx2 = int(0.625 * S), int(0.70 * S)
+          r_top, r_bot = int(0.27 * S), int(0.60 * S)
+          for y in range(r_top, r_bot + 1):
+              alpha = int(255 * (1.0 - (y - r_top) / float(r_bot - r_top)))
+              d.line((rx1, y, rx2, y), fill=(255, 255, 255, alpha))
+
+          fg_clipped = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+          fg_clipped.paste(fg, (0, 0), mask)
+          icon = Image.alpha_composite(bg, fg_clipped)
+
+          targets = [
+              ("mipmap-mdpi", 48),
+              ("mipmap-hdpi", 72),
+              ("mipmap-xhdpi", 96),
+              ("mipmap-xxhdpi", 144),
+              ("mipmap-xxxhdpi", 192),
+          ]
+          for folder, sz in targets:
+              out_dir = os.path.join("android", "app", "src", "main", "res", folder)
+              os.makedirs(out_dir, exist_ok=True)
+              icon.resize((sz, sz), Image.LANCZOS).save(os.path.join(out_dir, "ic_launcher.png"))
+          EOF
   
       - name: Restore Fixed Release Keystore
         run: |
