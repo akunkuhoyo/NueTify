@@ -60,7 +60,7 @@ export function DynamicIsland() {
   }, [expanded]);
 
   // Hide static top island while full-screen sheet or draggable floating Pro overlay is open
-  if !settings.showDynamicIsland || (isNowPlayingOpen || popupMode === 'floating-overlay') return null;
+  if (!settings.showDynamicIsland || isNowPlayingOpen || popupMode === 'floating-overlay') return null;
 
   const liked = currentTrack ? isLiked(currentTrack.videoId) : false;
   const progress =
