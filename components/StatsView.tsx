@@ -520,7 +520,7 @@ export function StatsView() {
             exit={{ opacity: 0 }}
             role="dialog"
             aria-modal="true"
-            aria-label="Sonara Listening Recap Story"
+            aria-label="NueTify Listening Recap Story"
             data-testid="recap-story-modal"
             className="fixed inset-0 z-[80] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4"
           >
@@ -558,7 +558,7 @@ export function StatsView() {
 
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-white/75">
-                    Sonara Recap · {recapSlide + 1}/{recapSlides.length}
+                    NueTify Recap · {recapSlide + 1}/{recapSlides.length}
                   </span>
                   <button
                     type="button"
