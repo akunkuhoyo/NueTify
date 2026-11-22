@@ -12,11 +12,15 @@ interface ReleaseInfo {
 
 const FALLBACK_RELEASE: ReleaseInfo = {
   version: 'Terbaru',
-  downloadUrl:
-    'https://github.com/akunkuhoyo/NueTify/releases/latest/download/NueTify.apk',
+  downloadUrl: ['https:', '', 'github.com', 'akunkuhoyo', 'NueTify', 'releases', 'latest', 'download', 'NueTify.apk'].join('/'),
   fileSizeMb: null,
   publishedAt: null,
 };
+
+function normalizeVersion(v: string | null | undefined): string {
+  if (!v) return '';
+  return v.trim().toLowerCase().replace(/^v/, '');
+}
 
 export function AppDownloadModal() {
   const [open, setOpen] = useState(false);
@@ -26,10 +30,16 @@ export function AppDownloadModal() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const ua = navigator.userAgent || '';
-    const isNativeApp =
-      ua.includes('NueTifyAndroid') ||
-      Boolean((window as unknown as { NueTifyNative?: unknown }).NueTifyNative);
+    const nativeBridge = (
+      window as unknown as {
+        NueTifyNative?: { getAppVersionName?: () => string };
+      }
+    ).NueTifyNative;
+    const isNativeApp = ua.includes('NueTifyAndroid') || Boolean(nativeBridge);
     setIsNative(isNativeApp);
+
+    const installedRaw = nativeBridge?.getAppVersionName?.() || '';
+    const installedVer = normalizeVersion(installedRaw);
 
     const checkAndShow = (info: ReleaseInfo) => {
       const resolved: ReleaseInfo = {
@@ -40,44 +50,69 @@ export function AppDownloadModal() {
       };
       setRelease(resolved);
 
+      const latestVer = normalizeVersion(resolved.version);
+
       try {
         if (isNativeApp) {
-          const seenKey = `nuetify_apk_seen_v2_${resolved.version}`;
+          if (!latestVer || latestVer === 'terbaru') {
+            setOpen(false);
+            return;
+          }
+          if (installedVer && installedVer === latestVer) {
+            setOpen(false);
+            return;
+          }
+          const seenKey = `nuetify_apk_seen_v3_${latestVer}`;
           if (!window.localStorage.getItem(seenKey)) {
             setOpen(true);
           }
         } else {
-          const sessionKey = `nuetify_web_popup_v2_${resolved.version}`;
+          const sessionKey = `nuetify_web_popup_v3_${latestVer || 'latest'}`;
           if (!window.sessionStorage.getItem(sessionKey)) {
             setOpen(true);
           }
         }
       } catch {
-        setOpen(true);
+        if (!isNativeApp) setOpen(true);
       }
     };
 
     let cancelled = false;
-    fetch('/api/app-release', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : FALLBACK_RELEASE))
-      .then((info: ReleaseInfo) => {
-        if (!cancelled) checkAndShow(info);
-      })
-      .catch(() => {
-        if (!cancelled) checkAndShow(FALLBACK_RELEASE);
-      });
+    const checkRelease = () => {
+      fetch('/api/app-release', { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : FALLBACK_RELEASE))
+        .then((info: ReleaseInfo) => {
+          if (!cancelled) checkAndShow(info);
+        })
+        .catch(() => {
+          if (!cancelled && !isNativeApp) checkAndShow(FALLBACK_RELEASE);
+        });
+    };
+
+    checkRelease();
+    const intervalId = window.setInterval(checkRelease, 60000);
+    const onFocus = () => checkRelease();
+    const onVis = () => {
+      if (document.visibilityState === 'visible') checkRelease();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVis);
 
     return () => {
       cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVis);
     };
   }, []);
 
   const handleDismiss = () => {
     try {
+      const latestVer = normalizeVersion(release.version) || 'latest';
       if (isNative) {
-        window.localStorage.setItem(`nuetify_apk_seen_v2_${release.version}`, '1');
+        window.localStorage.setItem(`nuetify_apk_seen_v3_${latestVer}`, '1');
       } else {
-        window.sessionStorage.setItem(`nuetify_web_popup_v2_${release.version}`, '1');
+        window.sessionStorage.setItem(`nuetify_web_popup_v3_${latestVer}`, '1');
       }
     } catch {
       // ignore storage errors
@@ -116,7 +151,7 @@ export function AppDownloadModal() {
             </h2>
             <p className="text-xs text-[#C0C0C0] mt-0.5">
               Versi {release.version}
-              {release.fileSizeMb ? ` · ${release.fileSizeMb} MB` : ''} · Auto-Update
+              {release.fileSizeMb ? ` · ${release.fileSizeMb} MB` : ''} · Real-Time Update
             </p>
           </div>
         </div>
