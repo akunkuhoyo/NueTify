@@ -375,7 +375,7 @@ export function SettingsView() {
 
   return (
     <div className="space-y-6 pb-10 max-w-4xl mx-auto">
-      {/* Sonara Material 3 Settings Top Bar */}
+      {/* NueTify Settings Top Bar */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
           <div>
@@ -467,7 +467,7 @@ export function SettingsView() {
                 <div className="min-w-0">
                   <p className="text-[14.5px] font-semibold">Theme Mode</p>
                   <p className="text-[12.5px] opacity-60">
-                    Sonara Material 3 surface styling
+                    NueTify Dark Material surface styling
                   </p>
                 </div>
               </div>
