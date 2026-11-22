@@ -1036,25 +1036,54 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
 
   // Sync active track state to Android native lockscreen bridge
   useEffect(() => {
-    const liked = currentTrack ? likedTracks.some((t) => t.videoId === currentTrack.videoId) : false;
+    if (!currentTrack) return;
     (
       window as unknown as {
         NueTifyNative?: {
-          updateMediaState: (t: string, a: string, p: boolean, l: boolean, r: string, art: string) => void;
+          updateMediaState: (
+            t: string,
+            a: string,
+            p: boolean,
+            s: boolean,
+            r: string,
+            art: string,
+            posMs: number,
+            durMs: number
+          ) => void;
         };
       }
     ).NueTifyNative?.updateMediaState(
-      currentTrack?.title ?? '',
-      currentTrack?.artist ?? '',
+      currentTrack.title,
+      currentTrack.artist,
       isPlaying,
-      liked,
+      queueState.shuffle,
       queueState.repeat,
-      currentTrack?.thumbnail ?? ''
+      currentTrack.thumbnail ?? '',
+      Math.floor(currentTime * 1000),
+      Math.floor(duration * 1000)
     );
-  }, [currentTrack, isPlaying, likedTracks, queueState.repeat]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTrack, isPlaying, queueState.shuffle, queueState.repeat, duration]);
+
+  // Sync active track playback position to Android native lockscreen bridge
+  useEffect(() => {
+    if (!currentTrack) return;
+    (
+      window as unknown as {
+        NueTifyNative?: {
+          updateMediaPosition?: (posMs: number, durMs: number, p: boolean) => void;
+        };
+      }
+    ).NueTifyNative?.updateMediaPosition?.(
+      Math.floor(currentTime * 1000),
+      Math.floor(duration * 1000),
+      isPlaying
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTrack, currentTime, duration, isPlaying]);
 
   // Handle Android native lockscreen notification actions
-  useEffect(() => {
+    useEffect(() => {
     const onNativeAction = (e: Event) => {
       const detail = (e as CustomEvent<string | { action?: string }>).detail;
       const action = typeof detail === 'string' ? detail : detail?.action;
@@ -1074,12 +1103,25 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         case 'REPEAT':
           cycleRepeat();
           break;
+        case 'SHUFFLE':
+          toggleShuffle();
+          break;
+      }
+    };
+    const onNativeSeek = (e: Event) => {
+      const sec = Number((e as CustomEvent).detail);
+      if (!Number.isNaN(sec)) {
+        seekTo(sec);
       }
     };
     window.addEventListener('nuetify-native-action', onNativeAction);
-    return () => window.removeEventListener('nuetify-native-action', onNativeAction);
+    window.addEventListener('nuetify-native-seek', onNativeSeek);
+    return () => {
+      window.removeEventListener('nuetify-native-action', onNativeAction);
+      window.removeEventListener('nuetify-native-seek', onNativeSeek);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [togglePlayPause, nextTrack, prevTrack, currentTrack]);
+  }, [togglePlayPause, nextTrack, prevTrack, currentTrack, seekTo]);
 
   const setVolume = useCallback((vol: number) => {
     const clamped = Math.max(0, Math.min(100, vol));
