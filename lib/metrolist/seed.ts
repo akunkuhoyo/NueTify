@@ -140,7 +140,7 @@ export const DEFAULT_SETTINGS: PlayerSettings = {
   bassBoostEnabled: false,
   thumbnailCornerRadius: 24,
   swipeToChangeTrack: true,
-  lyricsAnimationStyle: 'APPLE',
+  lyricsAnimationStyle: 'NONE',
   lyricsTextPosition: 'CENTER',
   lyricsFontSize: 24,
   lyricsLineSpacing: 1.35,
