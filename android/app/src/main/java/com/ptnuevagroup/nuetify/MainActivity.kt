@@ -71,6 +71,27 @@ class MainActivity : AppCompatActivity() {
 
         initAudioEffects()
 
+            override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleAuthDeepLink(intent)
+    }
+
+    private fun handleAuthDeepLink(intent: Intent?) {
+        val [invalid URL] Uri = intent?.data ?: return
+        if (data.scheme == "nuetify" && [invalid URL] == "auth") {
+            val fragment = data.encodedFragment
+            val query = data.encodedQuery
+            val targetUrl = buildString {
+                append("https://nuetify.vercel.app/")
+                if (!query.isNullOrBlank()) append("?").append(query)
+                if (!fragment.isNullOrBlank()) append("#").append(fragment)
+            }
+            webView.loadUrl(targetUrl)
+        }
+    }
+    
+
         webView = BackgroundWebView(this).apply {
             setBackgroundColor(Color.parseColor("#121212"))
             settings.javaScriptEnabled = true
@@ -131,8 +152,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        webView.loadUrl("https://nuetify.vercel.app/")
-    }
+        if (intent?.data?.scheme == "nuetify") {
+            handleAuthDeepLink(intent)
+        } else {
+            webView.loadUrl("https://nuetify.vercel.app/")
+           }
+        }
 
     private fun initAudioEffects() {
         try {
