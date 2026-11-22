@@ -170,6 +170,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+
+  useEffect(() => {
+    const supabase = getSupabaseClient();
+    if (!supabase || typeof window === 'undefined') return;
+
+    const handleHashToken = async () => {
+      const hash = window.location.hash;
+      if (!hash || !hash.includes('access_token=')) return;
+      const params = new URLSearchParams(hash.startsWith('#') ? hash.slice(1) : hash);
+      const access_token = params.get('access_token');
+      const refresh_token = params.get('refresh_token');
+      if (access_token && refresh_token) {
+        await supabase.auth.setSession({ access_token, refresh_token });
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    };
+
+    const onHashChange = () => {
+      void handleHashToken();
+    };
+
+    void handleHashToken();
+    window.addEventListener('hashchange', onHashChange);
+    return () => {
+      window.removeEventListener('hashchange', onHashChange);
+    };
+  }, []);
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
