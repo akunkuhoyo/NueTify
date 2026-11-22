@@ -7,6 +7,7 @@ import { getSupabaseClient } from '@/lib/cloud/supabaseClient';
 import { useAuth } from './AuthProvider';
 import { useMusic } from './MusicProvider';
 import { UserAvatar } from './UserAvatar';
+import { VerifiedBadge, isVerifiedDeveloper } from './VerifiedBadge';
 
 export interface LeaderboardEntry {
   user_id: string;
@@ -14,6 +15,7 @@ export interface LeaderboardEntry {
   avatar_url: string;
   total_seconds: number;
   total_plays: number;
+  is_verified?: boolean;
 }
 
 export function formatListeningDuration(totalSeconds: number): string {
@@ -180,7 +182,7 @@ export function LeaderboardSection() {
                   </button>
                   <div className="min-w-0">
                     <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight truncate">
-                      Leaderboard NueTify
+                      Leaderboard
                     </h1>
                     <p className="text-xs text-[#A7A7A7]">
                       Top 50 Pendengar Lagu Terlama · Real-Time
@@ -242,6 +244,10 @@ export function LeaderboardSection() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-bold text-white truncate">
                             {entry.display_name || 'Pengguna NueTify'}
+                      {isVerifiedDeveloper({
+                        userId: entry.user_id,
+                        serverVerified: entry.is_verified,
+                      }) && <VerifiedBadge size={15} />}
                           </p>
                           <p className="text-xs text-[#8E8E93]">
                             {entry.total_plays} kali putar
@@ -272,7 +278,7 @@ export function LeaderboardSection() {
             </span>
             <div className="min-w-0">
               <h3 className="text-[16px] font-bold text-white tracking-tight truncate">
-                Leaderboard Pendengar Terlama
+                Leaderboard
               </h3>
               <p className="text-[11.5px] text-[#8E8E93] truncate">
                 Top 3 saat ini · Minimal masuk Top 50
@@ -324,6 +330,10 @@ export function LeaderboardSection() {
                   <div className="min-w-0 flex-1">
                     <p className="text-[13.5px] font-bold text-white truncate">
                       {entry.display_name || 'Pengguna NueTify'}
+                      {isVerifiedDeveloper({
+                        userId: entry.user_id,
+                        serverVerified: entry.is_verified,
+                      }) && <VerifiedBadge size={15} />}
                     </p>
                     <p className="text-[11px] text-[#8E8E93]">
                       {entry.total_plays} kali putar
