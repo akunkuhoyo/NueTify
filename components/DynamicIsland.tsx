@@ -38,6 +38,7 @@ export function DynamicIsland() {
     lyrics,
     popupMode,
     toggleBackgroundPopup,
+    settings,
   } = useMusic();
 
   const [expanded, setExpanded] = useState(false);
@@ -59,7 +60,7 @@ export function DynamicIsland() {
   }, [expanded]);
 
   // Hide static top island while full-screen sheet or draggable floating Pro overlay is open
-  if (isNowPlayingOpen || popupMode === 'floating-overlay') return null;
+  if !settings.showDynamicIsland || (isNowPlayingOpen || popupMode === 'floating-overlay') return null;
 
   const liked = currentTrack ? isLiked(currentTrack.videoId) : false;
   const progress =
