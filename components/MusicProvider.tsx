@@ -688,11 +688,11 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === 'undefined') return;
 
     if (currentTrack && isPlaying) {
-      document.title = `▶ ${currentTrack.title} · ${currentTrack.artist} — Sonara`;
+      document.title = `▶ ${currentTrack.title} · ${currentTrack.artist} — NueTify`;
     } else if (currentTrack) {
-      document.title = `${currentTrack.title} — Sonara`;
+      document.title = `${currentTrack.title} — NueTify`;
     } else {
-      document.title = 'Sonara — Spatial Music';
+      document.title = 'NueTify';
     }
 
     if (isPlaying && settings.backgroundPlay && currentTrack) {
@@ -1365,12 +1365,12 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
         // ignore
       }
     }
-    showToast('Preferences reset to Sonara defaults');
+    showToast('Preferences reset to NueTify defaults');
   }, [showToast]);
 
   const exportLibraryBackup = useCallback(() => {
     const payload = {
-      app: 'Sonara',
+      app: 'NueTify',
       version: 1,
       exportedAt: new Date().toISOString(),
       history,
