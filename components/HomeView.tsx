@@ -25,6 +25,7 @@ import { useAuth } from './AuthProvider';
 import { ArtworkImage } from './ArtworkImage';
 import { LeaderboardSection } from './LeaderboardSection';
 import { TrackContextMenu } from './TrackContextMenu';
+import { VerifiedBadge, isVerifiedDeveloper } from './VerifiedBadge';
 import {
   EditorialFeatureCarousel,
   EssentialsAndAlbumsSection,
@@ -167,7 +168,7 @@ export function HomeView() {
     startRadio,
   searchHistory,
   } = useMusic();
-  const { profile } = useAuth();
+  const {user,  profile } = useAuth();
   const [homeData, setHomeData] = useState<HomePayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedMood, setSelectedMood] = useState<string>('all');
@@ -477,6 +478,7 @@ export function HomeView() {
           <div className="min-w-0">
             <h1 className="text-[26px] sm:text-[32px] font-bold tracking-tight leading-tight truncate">
               {greeting}{profile?.display_name ? `, ${profile.display_name}` : ''}
+                {profile?.display_name && isVerifiedDeveloper({ userId: user?.id, email: user?.email }) && <VerifiedBadge size={20} />}
             </h1>
             <p className="text-[13px] opacity-60 mt-0.5 truncate">
               Selamat datang di NueTify!
