@@ -488,3 +488,50 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* NueTify — Spotify Black & Solid Silver Theme (No Gradients) */
+:root,
+.dark,
+.dark.pure-black {
+  color-scheme: dark !important;
+  --m3-bg: #121212 !important;
+  --m3-surface: #181818 !important;
+  --m3-surface-high: #242424 !important;
+  --m3-border: rgba(192, 192, 192, 0.14) !important;
+  --m3-primary: #C0C0C0 !important;
+  --m3-on-primary: #000000 !important;
+  --m3-primary-container: #282828 !important;
+  --m3-on-primary-container: #E5E5E5 !important;
+  --m3-primary-soft: rgba(192, 192, 192, 0.16) !important;
+  --m3-ring: rgba(192, 192, 192, 0.45) !important;
+  --lyrics-neutral-active: #E5E5E5 !important;
+  --lyrics-neutral-inactive: rgba(192, 192, 192, 0.4) !important;
+  --lyrics-theme-inactive: rgba(192, 192, 192, 0.4) !important;
+}
+html,
+body {
+  background-color: #121212 !important;
+  color: #E5E5E5 !important;
+  background-image: none !important;
+}
+
+.metro-surface,
+.liquid-glass,
+.liquid-glass-elevated,
+.ios27-liquid-glass {
+  background-color: #181818 !important;
+  background-image: none !important;
+  border-color: rgba(192, 192, 192, 0.14) !important;
+}
+
+.metro-surface-high,
+.dynamic-island-glass {
+  background-color: #000000 !important;
+  background-image: none !important;
+  border-color: rgba(192, 192, 192, 0.18) !important;
+}
+
+[class*="bg-gradient-"],
+[class*="bg-linear-"] {
+  background-image: none !important;
+}
