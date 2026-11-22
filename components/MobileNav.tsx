@@ -1,4 +1,6 @@
 'use client';
+import { useAuth } from './AuthProvider';
+import { UserAvatar } from './UserAvatar';
 
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
@@ -50,7 +52,7 @@ interface DragLensState {
 
 export function MobileTopBar() {
   const { setActiveTab, activeTab, openDetail } = useMusic();
-
+  const { profile, isGuest } = useAuth();
   return (
     <header className="lg:hidden sticky top-0 z-30 h-[52px] px-3 flex items-center justify-between bg-[var(--m3-bg)]/95 border-b border-[var(--m3-border)]">
       <button
@@ -66,7 +68,9 @@ export function MobileTopBar() {
       </button>
 
       {/* Center slot intentionally stays open for the top-center Dynamic Island */}
-
+      <div className="flex items-center gap-1.5">
+<button type="button" onClick={() => { setActiveTab('settings'); openDetail(null); }} aria-label="Profil Pengguna"><UserAvatar src={profile?.avatar_url} name={profile?.display_name || (isGuest ? 'Tamu' : 'NueTify')} size={28} /></button>
+        
       <button
         type="button"
         onClick={() => setActiveTab('settings')}
@@ -80,6 +84,7 @@ export function MobileTopBar() {
       >
         <Settings className="w-5 h-5" />
       </button>
+      </div>
     </header>
   );
 }
