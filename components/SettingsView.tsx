@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useRef, useState } from 'react';
+import { AccountSettingsCard } from './AccountSettingsCard';
 import {
   AlertTriangle,
   AlignCenter,
@@ -436,6 +437,7 @@ export function SettingsView() {
           </div>
         )}
       </div>
+      <AccountSettingsCard />
 
       {/* 1. APPEARANCE */}
       {showSection(
