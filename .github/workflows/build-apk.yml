@@ -32,8 +32,8 @@ jobs:
             sz="${spec##*:}"
             mkdir -p "android/app/src/main/res/$d"
             ffmpeg -y -loglevel error -i /tmp/icon_raw -vf "scale=${sz}:${sz}:force_original_aspect_ratio=increase,crop=${sz}:${sz}" "android/app/src/main/res/$d/ic_launcher.png"
-        done
-
+          done
+  
       - name: Generate Release Keystore
         run: |
           keytool -genkeypair -v \
