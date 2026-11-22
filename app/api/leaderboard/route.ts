@@ -10,6 +10,7 @@ interface LeaderboardRow {
   avatar_url: string;
   total_seconds: number;
   total_plays: number;
+  is_verified: boolean;
 }
 
 function calcHistoryStats(history: unknown): { totalSeconds: number; totalPlays: number } {
@@ -98,6 +99,7 @@ export async function GET() {
               avatar_url: prof?.avatar_url || existing?.avatar_url || '',
               total_seconds: stats.totalSeconds,
               total_plays: stats.totalPlays,
+          is_verified: m.user_id === 'ebc0b783-4ebd-44b2-89de-990c57cfd297',
             });
           }
         }
@@ -109,7 +111,11 @@ export async function GET() {
 
   const entries = Array.from(byUser.values())
     .sort((a, b) => b.total_seconds - a.total_seconds)
-    .slice(0, 50);
+    .slice(0, 50)
+    .map((row) => ({
+      ...row,
+      is_verified: row.user_id === 'ebc0b783-4ebd-44b2-89de-990c57cfd297',
+    }));
 
   return NextResponse.json({ entries });
 }
