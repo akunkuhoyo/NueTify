@@ -63,7 +63,7 @@ export function MobileTopBar() {
         }}
         className="flex items-center gap-3 text-left shrink-0 active:scale-[0.98] transition-transform"
       >
-       <img src="https://i.ibb.co.com/SD5pT6sM/Proyek-Baru-598-2-DB8-FD2.png" alt="NueTify" className="h-8 w-auto max-w-[160px] object-contain" />
+       <img src="https://i.ibb.co.com/zVTpRV9L/Proyek-Baru-598-652-F167.png" alt="NueTify" className="h-8 w-auto max-w-[160px] object-contain" />
       </button>
 
       <div className="flex items-center gap-2 shrink-0">
