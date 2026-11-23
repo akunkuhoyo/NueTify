@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Wrench, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { isVerifiedDeveloper } from './VerifiedBadge';
 import { getSupabaseClient } from '@/lib/cloud/supabaseClient';
+
 export function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [maintenance, setMaintenance] = useState(false);
@@ -12,36 +13,87 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
     'NueTify sedang dalam tahap pembaruan sistem dan peningkatan fitur. Silakan kembali beberapa saat lagi.'
   );
   const [bypassed, setBypassed] = useState(false);
-  const prevMaintenanceRef = React.useRef(false);
+  const prevMaintenanceRef = useRef(false);
+
+  const isDev = isVerifiedDeveloper({ userId: user?.id, email: user?.email });
+
   useEffect(() => {
     let cancelled = false;
+
+    const applyStatus = (nextEnabled: boolean, nextMessage?: string) => {
+      if (cancelled) return;
+      const wasMaintenance = prevMaintenanceRef.current;
+      prevMaintenanceRef.current = nextEnabled;
+      setMaintenance(nextEnabled);
+      if (nextMessage) setMessage(nextMessage);
+
+      if (!wasMaintenance && nextEnabled && !isDev) {
+        window.dispatchEvent(new CustomEvent('nuetify-force-stop'));
+      }
+      if (wasMaintenance && !nextEnabled) {
+        setBypassed(false);
+        window.dispatchEvent(new CustomEvent('nuetify-check-update'));
+      }
+    };
+
     const check = () => {
       fetch('/api/maintenance', { cache: 'no-store' })
         .then((r) => (r.ok ? r.json() : null))
         .then((data: { maintenance?: boolean; message?: string } | null) => {
           if (cancelled || !data) return;
-          setMaintenance(Boolean(data.maintenance));
-          if (data.message) setMessage(data.message);
+          applyStatus(Boolean(data.maintenance), data.message);
         })
         .catch(() => {});
     };
+
     check();
-    const id = window.setInterval(check, 60000);
+    const id = window.setInterval(check, 5000);
+    const onFocus = () => check();
+    const onVis = () => {
+      if (document.visibilityState === 'visible') check();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVis);
+
+    const supabase = getSupabaseClient();
+    const channel = supabase
+      ? supabase
+          .channel('nuetify-maintenance-instant')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'app_config' },
+            (payload) => {
+              const row = (payload.new || payload.old) as {
+                key?: string;
+                value?: { enabled?: boolean; message?: string };
+              } | null;
+              if (row?.key === 'maintenance' && row.value) {
+                applyStatus(Boolean(row.value.enabled), row.value.message);
+              } else {
+                check();
+              }
+            }
+          )
+          .subscribe()
+      : null;
+
     return () => {
       cancelled = true;
       window.clearInterval(id);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVis);
+      if (supabase && channel) {
+        void supabase.removeChannel(channel);
+      }
     };
-  }, []);
-    useEffect(() => { if (prevMaintenanceRef.current && !maintenance) { window.dispatchEvent(new CustomEvent('nuetify-check-update')); } prevMaintenanceRef.current = maintenance; }, [maintenance]);
-    useEffect(() => { const supabase = getSupabaseClient(); if (!supabase) return; const channel = supabase.channel('app_config_maintenance_realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'app_config', filter: 'key=eq.maintenance' }, (payload) => { const newRow = payload.new as { value?: { enabled?: boolean; message?: string } | null } | null; const val = newRow?.value; if (!val) return; setMaintenance(Boolean(val.enabled)); if (val.message) setMessage(val.message); }).subscribe(); return () => { void supabase.removeChannel(channel); }; }, []);
-  const isDev = isVerifiedDeveloper({ userId: user?.id, email: user?.email });
+  }, [isDev]);
 
   if (!maintenance || bypassed) {
     return <>{children}</>;
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#121212] text-[#E5E5E5] flex items-center justify-center px-4 py-8">
+    <div className="fixed inset-0 z-[200] min-h-screen w-full bg-[#121212] text-[#E5E5E5] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md rounded-3xl bg-[#181818] border border-[#C0C0C0]/20 p-7 text-center space-y-5 shadow-2xl">
         <div className="flex justify-center">
           <div className="relative">
@@ -94,4 +146,3 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
       </div>
     </div>
   );
-}
