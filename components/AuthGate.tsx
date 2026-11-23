@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Lock, Mail, User as UserIcon, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useAuth } from './AuthProvider';
-
+import { LoadingSquares } from './LoadingSquares';
 type AuthMode = 'login' | 'register' | 'forgot';
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
@@ -17,7 +17,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     signInWithGoogle,
     sendPasswordReset,
     updatePassword,
-    continueAsGuest,
+    continueAsGuest, banInfo, signOut,
   } = useAuth();
 
   const [mode, setMode] = useState<AuthMode>('login');
@@ -30,17 +30,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [infoMsg, setInfoMsg] = useState('');
 
   if (loading) {
-    return (
-      <div className="min-h-screen w-full bg-[#121212] text-[#E5E5E5] flex flex-col items-center justify-center gap-3 px-4">
-        <img
-          src="/icon"
-          alt="NueTify"
-          className="w-14 h-14 rounded-2xl object-cover border border-[#C0C0C0]/25"
-        />
-        <p className="text-sm text-[#A7A7A7]">Memuat NueTify...</p>
-      </div>
-    );
-  }
+return <LoadingSquares />; }
 
   if (isRecoveryMode) {
     const handleResetSubmit = async (e: React.FormEvent) => {
@@ -136,6 +126,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (user && banInfo) { return (<div className="min-h-screen bg-[#181818] text-white flex items-center justify-center p-4"><div className="w-full max-w-md rounded-3xl bg-[#202020] border border-[#E11D48]/50 p-6 shadow-2xl space-y-5"><div className="space-y-1.5"><span className="inline-block rounded-full bg-[#E11D48]/15 border border-[#E11D48]/40 px-3 py-1 text-xs font-semibold text-[#E11D48]">Akun Dibekukan (Banned)</span><h1 className="text-xl font-bold text-white">Akses Akun Dibatasi</h1><p className="text-xs text-[#C0C0C0]">Akun Anda saat ini sedang dibekukan oleh administrator.</p></div><div className="space-y-3 rounded-2xl bg-[#181818] border border-[#C0C0C0]/20 p-4 text-sm"><div className="space-y-1"><p className="text-xs font-medium text-[#C0C0C0]">Alasan</p><p className="text-white font-medium">{banInfo.reason || 'Melanggar ketentuan layanan'}</p></div><div className="space-y-1"><p className="text-xs font-medium text-[#C0C0C0]">Berlaku Hingga</p><p className="text-[#E11D48] font-semibold">{banInfo.banned_until ? new Date(banInfo.banned_until).toLocaleString('id-ID') : 'Permanen'}</p></div></div><button type="button" onClick={() => { void signOut(); }} className="w-full rounded-full bg-[#E11D48] hover:bg-[#E11D48]/90 text-white font-bold text-sm py-3 transition">Kembali ke Halaman Login (Buat Akun Baru)</button></div></div>); }
   if (user || isGuest) {
     return <>{children}</>;
   }
