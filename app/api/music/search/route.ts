@@ -12,13 +12,129 @@ import {
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-const PAGE_MODIFIERS = ['audio', 'lyrics', 'remix', 'cover', 'live', 'slowed', 'acoustic', 'official'];
+const PAGE_MODIFIERS = [
+  'remix',
+  'slowed reverb',
+  'dj',
+  'cover',
+  'live',
+  'acoustic',
+  'lyrics',
+  'official',
+];
+
+const STYLE_MODIFIERS = [
+  'dj',
+  'remix',
+  'rmx',
+  'slowed',
+  'reverb',
+  'sped',
+  'nightcore',
+  'koplo',
+  'dangdut',
+  'acoustic',
+  'akustik',
+  'live',
+  'cover',
+  'karaoke',
+  'instrumental',
+  'phonk',
+  'jj',
+  'slowbass',
+  'bass',
+  'tiktok',
+  'viral',
+  'jedag',
+];
+
+function extractTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length >= 2);
+}
+
+function getMeaningfulTokens(query: string): string[] {
+  const tokens = extractTokens(query);
+  const nonModifier = tokens.filter((t) => !STYLE_MODIFIERS.includes(t));
+  return nonModifier.length > 0 ? nonModifier : tokens;
+}
+
+function hasMeaningfulTokenMatch(
+  track: { title?: string; artist?: string },
+  query: string
+): boolean {
+  const meaningful = getMeaningfulTokens(query);
+  if (meaningful.length === 0) return true;
+  const haystack = `${track.title || ''} ${track.artist || ''}`.toLowerCase();
+  return meaningful.some((token) => haystack.includes(token));
+}
+
+function scoreTrackRelevance(
+  track: { title?: string; artist?: string; type?: string },
+  query: string
+): number {
+  const queryLower = query.toLowerCase().trim();
+  const queryTokens = extractTokens(query);
+  const queryModifiers = STYLE_MODIFIERS.filter((m) => queryTokens.includes(m));
+  const haystack = `${track.title || ''} ${track.artist || ''}`.toLowerCase();
+
+  let score = 0;
+
+  if (queryLower && haystack.includes(queryLower)) {
+    score += 100;
+  }
+
+  let matchedTokens = 0;
+  for (const token of queryTokens) {
+    if (haystack.includes(token)) {
+      matchedTokens += 1;
+    }
+  }
+  score += matchedTokens * 25;
+
+  if (queryModifiers.length > 0) {
+    let matchedModifiers = 0;
+    for (const mod of queryModifiers) {
+      if (haystack.includes(mod)) {
+        matchedModifiers += 1;
+        score += 120;
+      }
+    }
+    if (matchedModifiers === 0) {
+      score -= 120;
+    }
+  } else {
+    const hasStyleWord = STYLE_MODIFIERS.some((m) =>
+      new RegExp(`\\b${m}\\b`, 'i').test(haystack)
+    );
+    if (track.type === 'SONG' && !hasStyleWord) {
+      score += 35;
+    } else if (hasStyleWord && matchedTokens > 0) {
+      score += 15;
+    }
+  }
+
+  return score;
+}
+
+type TrackCandidate = {
+  videoId?: string;
+  title?: string;
+  artist?: string;
+  type?: string;
+  kind: string;
+  [key: string]: unknown;
+};
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const query = (searchParams.get('q') || '').trim();
   const type = (searchParams.get('type') || 'all').toLowerCase();
   const gl = searchParams.get('gl') || 'ID';
+  const hl = gl.toUpperCase() === 'ID' ? 'id' : 'en';
   const suggest = searchParams.get('suggest') === '1';
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
 
@@ -27,7 +143,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const yt = await getYTMusicClient({ gl, hl: 'en' });
+    const yt = await getYTMusicClient({ gl, hl });
 
     if (suggest) {
       const suggestions = await yt.getSearchSuggestions(query);
@@ -45,23 +161,31 @@ export async function GET(req: NextRequest) {
         yt.searchVideos(`${query} ${mod}`),
       ]);
 
-      const songs =
+      const songs: TrackCandidate[] =
         songsRes.status === 'fulfilled'
           ? songsRes.value.map((s) => ({ ...normalizeSong(s), kind: 'TRACK' as const }))
           : [];
-      const videos =
+      const videos: TrackCandidate[] =
         videosRes.status === 'fulfilled'
           ? videosRes.value.map((v) => ({ ...normalizeVideo(v), kind: 'TRACK' as const }))
           : [];
 
       const seen = new Set<string>();
-      const dedupedTracks = [];
+      const dedupedTracks: TrackCandidate[] = [];
       for (const track of [...songs, ...videos]) {
-        if (track.videoId && !seen.has(track.videoId)) {
+        if (
+          track.videoId &&
+          !seen.has(track.videoId) &&
+          hasMeaningfulTokenMatch(track, query)
+        ) {
           seen.add(track.videoId);
           dedupedTracks.push(track);
         }
       }
+
+      dedupedTracks.sort(
+        (a, b) => scoreTrackRelevance(b, query) - scoreTrackRelevance(a, query)
+      );
 
       return NextResponse.json({
         results: dedupedTracks,
@@ -69,32 +193,53 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    if (type === 'songs') {
-      const [songsRes, videosRes] = await Promise.allSettled([
+    if (type === 'all' || type === 'songs') {
+      const [allRes, songsRes, videosRes] = await Promise.allSettled([
+        yt.search(query),
         yt.searchSongs(query),
         yt.searchVideos(query),
       ]);
 
-      const songs =
-        songsRes.status === 'fulfilled'
-          ? songsRes.value.map((s) => ({ ...normalizeSong(s), kind: 'TRACK' as const }))
+      const allItems =
+        allRes.status === 'fulfilled'
+          ? allRes.value.map(normalizeSearchItem).filter(Boolean)
           : [];
-      const videos =
+      const allTracks = allItems.filter(
+        (item): item is TrackCandidate => Boolean(item && item.kind === 'TRACK')
+      );
+      const nonTracks =
+        type === 'all'
+          ? allItems.filter((item) => item && item.kind !== 'TRACK')
+          : [];
+
+      const songs: TrackCandidate[] =
+        songsRes.status === 'fulfilled'
+          ? songsRes.value
+              .map((s) => ({ ...normalizeSong(s), kind: 'TRACK' as const }))
+              .filter((t) => hasMeaningfulTokenMatch(t, query))
+          : [];
+      const videos: TrackCandidate[] =
         videosRes.status === 'fulfilled'
-          ? videosRes.value.map((v) => ({ ...normalizeVideo(v), kind: 'TRACK' as const }))
+          ? videosRes.value
+              .map((v) => ({ ...normalizeVideo(v), kind: 'TRACK' as const }))
+              .filter((t) => hasMeaningfulTokenMatch(t, query))
           : [];
 
       const seen = new Set<string>();
-      const dedupedTracks = [];
-      for (const track of [...songs, ...videos]) {
+      const dedupedTracks: TrackCandidate[] = [];
+      for (const track of [...allTracks, ...songs, ...videos]) {
         if (track.videoId && !seen.has(track.videoId)) {
           seen.add(track.videoId);
           dedupedTracks.push(track);
         }
       }
 
+      dedupedTracks.sort(
+        (a, b) => scoreTrackRelevance(b, query) - scoreTrackRelevance(a, query)
+      );
+
       return NextResponse.json({
-        results: dedupedTracks,
+        results: [...dedupedTracks, ...nonTracks],
         hasMore: true,
       });
     }
@@ -111,6 +256,7 @@ export async function GET(req: NextRequest) {
       const albums = await yt.searchAlbums(query);
       return NextResponse.json({
         results: albums.map((a) => ({ ...normalizeAlbum(a), kind: 'ALBUM' as const })),
+        hasMore: false,
       });
     }
 
@@ -118,61 +264,27 @@ export async function GET(req: NextRequest) {
       const artists = await yt.searchArtists(query);
       return NextResponse.json({
         results: artists.map((a) => ({ ...normalizeArtist(a), kind: 'ARTIST' as const })),
+        hasMore: false,
       });
     }
 
     if (type === 'playlists') {
       const playlists = await yt.searchPlaylists(query);
       return NextResponse.json({
-        results: playlists.map((p) => ({
-          ...normalizePlaylist(p),
-          kind: 'PLAYLIST' as const,
-        })),
+        results: playlists.map((p) => ({ ...normalizePlaylist(p), kind: 'PLAYLIST' as const })),
+        hasMore: false,
       });
     }
 
-    const [mixedRes, songsRes, videosRes] = await Promise.allSettled([
-      yt.search(query),
-      yt.searchSongs(query),
-      yt.searchVideos(query),
-    ]);
-
-    const mixedNormalized =
-      mixedRes.status === 'fulfilled'
-        ? mixedRes.value
-            .map(normalizeSearchItem)
-            .filter((item): item is NonNullable<typeof item> => item !== null)
-        : [];
-
-    const seenTrackIds = new Set<string>();
-    for (const item of mixedNormalized) {
-      if (item.kind === 'TRACK' && item.videoId) {
-        seenTrackIds.add(item.videoId);
-      }
-    }
-
-    const extraSongs =
-      songsRes.status === 'fulfilled'
-        ? songsRes.value.map((s) => ({ ...normalizeSong(s), kind: 'TRACK' as const }))
-        : [];
-    const extraVideos =
-      videosRes.status === 'fulfilled'
-        ? videosRes.value.map((v) => ({ ...normalizeVideo(v), kind: 'TRACK' as const }))
-        : [];
-
-    const combined = [...mixedNormalized];
-    for (const track of [...extraSongs, ...extraVideos]) {
-      if (track.videoId && !seenTrackIds.has(track.videoId)) {
-        seenTrackIds.add(track.videoId);
-        combined.push(track);
-      }
-    }
-
-    return NextResponse.json({ results: combined, hasMore: true });
+    const items = await yt.search(query);
+    return NextResponse.json({
+      results: items.map(normalizeSearchItem).filter(Boolean),
+      hasMore: false,
+    });
   } catch (error) {
-    console.error('Search API error:', error);
+    console.error('[api/music/search] error:', error);
     return NextResponse.json(
-      { error: 'Search temporarily unavailable', results: [], suggestions: [] },
+      { error: 'Search failed', results: [] },
       { status: 500 }
     );
   }
