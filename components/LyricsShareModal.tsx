@@ -170,14 +170,16 @@ export function LyricsShareModal({ open, onClose }: LyricsShareModalProps) {
     }
   };
 
-  const handleDownloadPng = () => {
+  const handleDownloadPng = async () => {
     try {
       const canvas = document.createElement('canvas');
       canvas.width = activeAspect.w;
       canvas.height = activeAspect.h;
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
-
+      const loadImage = (src: string) => new Promise<HTMLImageElement | null>((resolve) => { const img = new Image(); img.crossOrigin = 'anonymous'; img.onload = () => resolve(img); img.onerror = () => resolve(null); img.src = src; });
+      const artImg = currentTrack.thumbnail ? await loadImage(`/api/image-proxy?url=${encodeURIComponent(currentTrack.thumbnail)}`) : null;
+      
       // Background gradient
       const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
       grad.addColorStop(0, activeTheme.bgStart);
@@ -201,17 +203,21 @@ export function LyricsShareModal({ open, onClose }: LyricsShareModalProps) {
       accentGlow.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = accentGlow;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+      if (theme === 'artwork' && artImg) { ctx.save(); ctx.filter = 'blur(48px)'; ctx.drawImage(artImg, -80, -80, canvas.width + 160, canvas.height + 160); ctx.restore(); ctx.fillStyle = 'rgba(0, 0, 0, 0.42)'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+      
       const pad = 92;
-
+      const roundedRect = (x: number, y: number, w: number, h: number, r: number) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r); ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h); ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath(); };
+      if (artImg) { ctx.save(); roundedRect(pad, pad, 110, 110, 16); ctx.clip(); ctx.drawImage(artImg, pad, pad, 110, 110); ctx.restore(); }
+      const textX = artImg ? pad + 132 : pad;
+      
       // Top metadata header
       ctx.fillStyle = activeTheme.textColor;
       ctx.font = '700 42px system-ui, -apple-system, sans-serif';
-      ctx.fillText(currentTrack.title.slice(0, 34), pad, pad + 44);
+      ctx.fillText(currentTrack.title.slice(0, 34), textX, pad + 44);
 
       ctx.fillStyle = activeTheme.mutedColor;
       ctx.font = '500 30px system-ui, -apple-system, sans-serif';
-      ctx.fillText(currentTrack.artist.slice(0, 42), pad, pad + 90);
+      ctx.fillText(currentTrack.artist.slice(0, 42), textX, pad + 90);
 
       // Hairline divider
       ctx.strokeStyle =
@@ -253,7 +259,8 @@ export function LyricsShareModal({ open, onClose }: LyricsShareModalProps) {
         }
         ctx.fillText(line, pad, cursorY);
         cursorY += lineHeight;
-      }
+      }      ctx.strokeStyle = theme === 'paper' ? 'rgba(20,20,22,0.12)' : 'rgba(255,255,255,0.14)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pad, canvas.height - pad - 54); ctx.lineTo(canvas.width - pad, canvas.height - pad - 54); ctx.stroke();
+      
 
       // Clean NueTify signature footer
       ctx.fillStyle = activeTheme.mutedColor;
