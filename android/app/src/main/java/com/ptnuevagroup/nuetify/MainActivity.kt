@@ -40,11 +40,11 @@ import java.io.FileOutputStream
 
 class BackgroundWebView(context: Context) : WebView(context) {
     override fun onWindowVisibilityChanged(visibility: Int) {
-        if (visibility != View.GONE) {
-            super.onWindowVisibilityChanged(visibility)
-        } else {
-            super.onWindowVisibilityChanged(View.VISIBLE)
-        }
+       super.onWindowVisibilityChanged(View.VISIBLE)
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, View.VISIBLE)
     }
 }
 
