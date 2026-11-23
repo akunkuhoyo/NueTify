@@ -48,7 +48,7 @@ export function Sidebar() {
             onClick={() => setActiveTab('home')}
             className="flex items-center gap-2.5 text-xl font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap shrink-0 text-left"
           >
-                        <img src="https://i.ibb.co.com/SD5pT6sM/Proyek-Baru-598-2-DB8-FD2.png" alt="NueTify" className="h-9 w-auto max-w-[180px] object-contain" />
+                        <img src="https://i.ibb.co.com/zVTpRV9L/Proyek-Baru-598-652-F167.png" alt="NueTify" className="h-9 w-auto max-w-[180px] object-contain" />
           </button>
 <button type="button" onClick={() => setActiveTab('settings')} aria-label="Profil Pengguna"><UserAvatar src={profile?.avatar_url} name={profile?.display_name || (isGuest ? 'Tamu' : 'NueTify')} size={30} /></button>
         </div>
