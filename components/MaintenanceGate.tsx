@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Wrench, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { isVerifiedDeveloper } from './VerifiedBadge';
-import { getSupabaseClient } from '@/lib/cloud/supabaseClient';
+import { getSupabaseClient } from '@/lib/cloud/supabaseClient'; import { LoadingSquares } from './LoadingSquares';
 
 export function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -13,18 +13,18 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
     'NueTify sedang dalam tahap pembaruan sistem dan peningkatan fitur. Silakan kembali beberapa saat lagi.'
   );
   const [bypassed, setBypassed] = useState(false);
-  const prevMaintenanceRef = useRef(false);
+  const prevMaintenanceRef = useRef(false); const [checked, setChecked] = useState(false); const [checkingNow, setCheckingNow] = useState(false); const [isAdminRoute, setIsAdminRoute] = useState(false); const checkRef = useRef<(() => void) | null>(null);
 
   const isDev = isVerifiedDeveloper({ userId: user?.id, email: user?.email });
 
   useEffect(() => {
-    let cancelled = false;
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) { setIsAdminRoute(true); setChecked(true); return; } try { if (window.localStorage.getItem('nuetify_maintenance_active') === '1') { prevMaintenanceRef.current = true; setMaintenance(true); } } catch {} let cancelled = false;
 
     const applyStatus = (nextEnabled: boolean, nextMessage?: string) => {
       if (cancelled) return;
       const wasMaintenance = prevMaintenanceRef.current;
       prevMaintenanceRef.current = nextEnabled;
-      setMaintenance(nextEnabled);
+      setMaintenance(nextEnabled); try { window.localStorage.setItem('nuetify_maintenance_active', nextEnabled ? '1' : '0'); } catch {}
       if (nextMessage) setMessage(nextMessage);
 
       if (!wasMaintenance && nextEnabled && !isDev) {
@@ -43,11 +43,11 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
           if (cancelled || !data) return;
           applyStatus(Boolean(data.maintenance), data.message);
         })
-        .catch(() => {});
+        .catch(() => {}).finally(() => { if (!cancelled) { setChecked(true); setCheckingNow(false); } });
     };
 
     check();
-    const id = window.setInterval(check, 5000);
+    checkRef.current = check; const id = window.setInterval(check, 5000);
     const onFocus = () => check();
     const onVis = () => {
       if (document.visibilityState === 'visible') check();
@@ -88,7 +88,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
     };
   }, [isDev]);
 
-  if (!maintenance || bypassed) {
+  if (isAdminRoute) return <>{children}</>; if (!checked && !maintenance) return (<div className="fixed inset-0 z-[200] min-h-screen w-full bg-[#121212] flex items-center justify-center"><LoadingSquares /></div>); if (!maintenance || bypassed) {
     return <>{children}</>;
   }
 
@@ -121,7 +121,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
         <div className="space-y-2.5 pt-1">
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            disabled={checkingNow} onClick={() => { if (checkingNow) return; setCheckingNow(true); checkRef.current?.(); }}
             className="w-full rounded-full bg-[#C0C0C0] text-black font-bold text-sm py-3 hover:bg-[#D4D4D8] transition-colors flex items-center justify-center gap-2"
           >
             <RefreshCw className="w-4 h-4" />
