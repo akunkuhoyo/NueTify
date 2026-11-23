@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   X,
   RefreshCw,
+BarChart3,
 } from 'lucide-react';
 import { getSupabaseClient } from '@/lib/cloud/supabaseClient';
 import { LoadingSquares } from '@/components/LoadingSquares';
@@ -26,6 +27,9 @@ interface AdminUserRow {
   is_banned: boolean;
   ban_reason: string;
   banned_until: string | null;
+  total_seconds?: number;
+  total_plays?: number;
+  has_stat_override?: boolean;
 }
 
 interface AuditLogRow {
@@ -56,6 +60,12 @@ export default function AdminDashboardPage() {
   const [banTarget, setBanTarget] = useState<AdminUserRow | null>(null);
   const [banDuration, setBanDuration] = useState('24h');
   const [banReason, setBanReason] = useState('');
+  const [statsTarget, setStatsTarget] = useState<AdminUserRow | null>(null);
+  const [editHours, setEditHours] = useState('0');
+  const [editMinutes, setEditMinutes] = useState('0');
+  const [editPlays, setEditPlays] = useState('0');
+  const [editStatsReason, setEditStatsReason] = useState('');
+  const [savingStats, setSavingStats] = useState(false);
 
   const loadDashboard = useCallback(async (token: string) => {
     const res = await fetch('/api/admin', {
@@ -208,6 +218,68 @@ export default function AdminDashboardPage() {
       await loadDashboard(accessToken);
     }
     setSubmitting(false);
+  };
+
+  const openStatsModal = (u: AdminUserRow) => {
+    setEditHours(String(Math.floor((u.total_seconds || 0) / 3600)));
+    setEditMinutes(String(Math.floor(((u.total_seconds || 0) % 3600) / 60)));
+    setEditPlays(String(u.total_plays || 0));
+    setEditStatsReason('');
+    setStatsTarget(u);
+  };
+
+  const handleSaveStats = async () => {
+    if (!accessToken || !statsTarget) return;
+    setSavingStats(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          action: 'update_leaderboard_stats',
+          targetUserId: statsTarget.id,
+          totalHours: Number(editHours || 0),
+          totalMinutes: Number(editMinutes || 0),
+          totalPlays: Number(editPlays || 0),
+          reason: editStatsReason.trim(),
+        }),
+      });
+      if (res.ok) {
+        setStatusMsg(`Statistik leaderboard ${statsTarget.display_name} berhasil diperbarui.`);
+        await loadDashboard(accessToken);
+        setStatsTarget(null);
+      }
+    } finally {
+      setSavingStats(false);
+    }
+  };
+
+  const handleResetStatsOverride = async (userId: string) => {
+    if (!accessToken) return;
+    setSavingStats(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          action: 'reset_leaderboard_override',
+          targetUserId: userId,
+        }),
+      });
+      if (res.ok) {
+        setStatusMsg('Override statistik leaderboard berhasil direset.');
+        await loadDashboard(accessToken);
+        setStatsTarget(null);
+      }
+    } finally {
+      setSavingStats(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -406,9 +478,17 @@ export default function AdminDashboardPage() {
                         BANNED
                       </span>
                     )}
-                  </div>
+               
+                    {u.has_stat_override && (
+                      <span className="px-2 py-0.5 rounded-full bg-[#C0C0C0]/15 border border-[#C0C0C0]/40 text-[10px] font-bold text-[#C0C0C0] shrink-0">
+                        Override
+                      </span>
+                    )}   </div>
                   <p className="text-xs text-[#A7A7A7] truncate">
                     {u.email || u.id} · {u.provider}
+                  </p>
+                  <p className="text-[11px] text-[#C0C0C0]/80 mt-0.5 truncate">
+                    {Math.floor((u.total_seconds || 0) / 3600)} jam {Math.floor(((u.total_seconds || 0) % 3600) / 60)} mnt · {u.total_plays || 0} putar
                   </p>
                   {u.is_banned && (
                     <p className="text-[11px] text-red-300 mt-0.5 truncate">
@@ -417,6 +497,14 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => openStatsModal(u)}
+                    className="px-3 py-2 rounded-full bg-[#242424] border border-[#C0C0C0]/25 text-xs font-semibold text-white hover:bg-[#2E2E2E] flex items-center gap-1.5"
+                  >
+                    <BarChart3 className="w-3.5 h-3.5 text-[#C0C0C0]" />
+                    Statistik
+                  </button>
                   {u.is_banned ? (
                     <button
                       type="button"
@@ -477,6 +565,99 @@ export default function AdminDashboardPage() {
         )}
       </div>
 
+      {statsTarget && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center px-4">
+          <div className="w-full max-w-md rounded-3xl bg-[#181818] border border-[#C0C0C0]/20 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-[#C0C0C0]" />
+                <span>Ubah Statistik Leaderboard</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setStatsTarget(null)}
+                className="text-xs text-[#A7A7A7] hover:text-white"
+              >
+                Tutup
+              </button>
+            </div>
+            <p className="text-xs text-[#A7A7A7] truncate">
+              Pengguna: <span className="text-white font-semibold">{statsTarget.display_name}</span>
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs text-[#A7A7A7] mb-1">Jam</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={editHours}
+                  onChange={(e) => setEditHours(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#121212] border border-[#C0C0C0]/20 text-sm text-white outline-none focus:border-[#C0C0C0]/50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-[#A7A7A7] mb-1">Menit</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={59}
+                  value={editMinutes}
+                  onChange={(e) => setEditMinutes(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#121212] border border-[#C0C0C0]/20 text-sm text-white outline-none focus:border-[#C0C0C0]/50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-[#A7A7A7] mb-1">Jumlah Putar</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={editPlays}
+                  onChange={(e) => setEditPlays(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-[#121212] border border-[#C0C0C0]/20 text-sm text-white outline-none focus:border-[#C0C0C0]/50"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-[#A7A7A7] mb-1">Catatan Audit (opsional)</label>
+              <input
+                type="text"
+                value={editStatsReason}
+                onChange={(e) => setEditStatsReason(e.target.value)}
+                placeholder="Alasan perubahan statistik..."
+                className="w-full px-3 py-2 rounded-xl bg-[#121212] border border-[#C0C0C0]/20 text-sm text-white outline-none focus:border-[#C0C0C0]/50"
+              />
+            </div>
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+              {statsTarget.has_stat_override && (
+                <button
+                  type="button"
+                  disabled={savingStats}
+                  onClick={() => void handleResetStatsOverride(statsTarget.id)}
+                  className="px-3 py-2 rounded-full bg-[#242424] border border-amber-500/40 text-xs font-semibold text-amber-300 hover:bg-amber-500/10 disabled:opacity-50"
+                >
+                  Reset ke Statistik Asli
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={savingStats}
+                onClick={() => setStatsTarget(null)}
+                className="px-4 py-2 rounded-full bg-[#242424] border border-[#C0C0C0]/20 text-xs font-semibold text-[#A7A7A7] hover:text-white disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={savingStats}
+                onClick={() => void handleSaveStats()}
+                className="px-4 py-2 rounded-full bg-white text-black text-xs font-bold hover:bg-[#E5E5E5] disabled:opacity-50"
+              >
+                {savingStats ? 'Menyimpan...' : 'Simpan Statistik'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {banTarget && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center px-4">
           <form
