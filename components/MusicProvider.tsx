@@ -1120,7 +1120,7 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
       JSON.stringify(settings.equalizerBands ?? [0, 0, 0, 0, 0]),
       Boolean(settings.bassBoostEnabled)
     );
-  }, [settings.equalizerBands, settings.bassBoostEnabled, isPlaying]);
+  }, [settings.equalizerBands, settings.bassBoostEnabled]);
 
   // Handle Android native lockscreen notification actions
     useEffect(() => {
