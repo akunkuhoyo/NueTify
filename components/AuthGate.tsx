@@ -233,15 +233,16 @@ return <LoadingSquares />; }
           {mode === 'register' && (
             <div>
               <label className="block text-xs font-medium text-[#C0C0C0] mb-1.5">
-                Nama Tampilan
+                Nama Tampilan (maks. 15 karakter)
               </label>
               <div className="relative">
                 <UserIcon className="w-4 h-4 text-[#8E8E93] absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   required
+                  maxLength={15}
                   value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
+                  onChange={(e) => setDisplayName(e.target.value.slice(0, 15))}
                   placeholder="Nama Anda"
                   className="w-full rounded-xl bg-[#242424] border border-[#C0C0C0]/20 pl-10 pr-3.5 py-2.5 text-sm text-white placeholder-[#7A7A7A] focus:outline-none focus:border-[#C0C0C0]"
                 />
