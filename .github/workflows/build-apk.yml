@@ -26,7 +26,7 @@ jobs:
 
       - name: Download & Convert NueTify Launcher Icon
         run: |
-          curl -fsSL "https://raw.githubusercontent.com/nuenime/Prompt/refs/heads/main/IMG-20261014-WA0188.jpg" -o /tmp/nuetify_logo.jpg
+          curl -fsSL "https://i.ibb.co.com/zWnqqSFM/Proyek-Baru-597-FE9-F6-D7.png" -o /tmp/nuetify_logo.jpg
           sudo apt-get update -qq && sudo apt-get install -y -qq python3-pil
           python3 - << 'EOF'
           import os
