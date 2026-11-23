@@ -6,7 +6,6 @@ import {
   Heart,
   Loader2,
   Pause,
-  PictureInPicture2,
   Play,
   SkipForward,
 } from 'lucide-react';
@@ -27,8 +26,6 @@ export function MiniPlayer() {
     isLiked,
     toggleLike,
     setIsNowPlayingOpen,
-    popupMode,
-    toggleBackgroundPopup,
     settings,
   } = useMusic();
 
@@ -132,23 +129,7 @@ export function MiniPlayer() {
               <SkipForward className="w-4 h-4 fill-current" />
             </button>
 
-            <button
-              type="button"
-              onClick={toggleBackgroundPopup}
-              aria-label={
-                popupMode === 'off'
-                  ? 'Pop out Dynamic Island'
-                  : 'Close Dynamic Island popup'
-              }
-              title="Dynamic Island Background Popup"
-              className={`min-h-[40px] min-w-[40px] flex items-center justify-center rounded-full transition-colors ${
-                popupMode !== 'off'
-                  ? 'text-[var(--m3-primary)] bg-[var(--m3-primary-soft)]'
-                  : 'text-slate-500 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10'
-              }`}
-            >
-              <PictureInPicture2 className="w-4 h-4" />
-            </button>
+      
 
             <button
               type="button"
