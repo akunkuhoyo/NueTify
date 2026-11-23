@@ -18,6 +18,7 @@ import { ArtworkImage } from './ArtworkImage';
 import { useMusic } from './MusicProvider';
 import { DetailViewSkeleton } from './Skeletons';
 import { TrackContextMenu } from './TrackContextMenu';
+import { MarqueeText } from './MarqueeText';
 import { formatDuration } from '@/lib/metrolist/lyrics';
 import {
   computeTotalDurationSec,
@@ -208,7 +209,7 @@ export function DetailView() {
                 ) : (
                   <div className="flex items-center gap-2">
                     <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-950 dark:text-white truncate">
-                      {userPlaylist.name}
+                      <MarqueeText text={userPlaylist.name} />
                     </h1>
                     <button
                       type="button"
@@ -227,11 +228,11 @@ export function DetailView() {
                 <p className="text-sm text-slate-600 dark:text-slate-300">
                   {userPlaylist.description || 'Custom Playlist'}
                   <span aria-hidden="true"> · </span>
-                  <span className="font-mono-nums">{userPlaylist.tracks.length} tracks</span>
+                  <span className="font-mono-nums shrink-0">{userPlaylist.tracks.length} tracks</span>
                   {userPlaylist.tracks.length > 0 && (
                     <>
                       <span aria-hidden="true"> · </span>
-                      <span className="font-mono-nums">{totalDurationLabel}</span>
+                      <span className="font-mono-nums shrink-0">{totalDurationLabel}</span>
                     </>
                   )}
                 </p>
@@ -260,7 +261,7 @@ export function DetailView() {
                       onSubmit={(e) => {
                         e.preventDefault();
                         if (tagDraft.trim()) {
-                          updatePlaylistTags(userPlaylist.id, [...tags, tagDraft.trim()]);
+                          updatePlaylistTags(userPlaylist.id, [tagDraft.trim().slice(0, 15)]);
                         }
                         setTagDraft('');
                         setAddingTag(false);
@@ -271,7 +272,7 @@ export function DetailView() {
                         type="text"
                         value={tagDraft}
                         onChange={(e) => setTagDraft(e.target.value)}
-                        placeholder="Tag..."
+                        placeholder="Tag..." maxLength={15}
                         aria-label="Add tag to playlist"
                         className="h-7 w-28 px-2.5 rounded-full bg-black/5 dark:bg-white/10 text-xs focus:outline-none"
                         autoFocus
@@ -283,7 +284,7 @@ export function DetailView() {
                         Add
                       </button>
                     </form>
-                  ) : (
+                  ) : tags.length === 0 ? (
                     <button
                       type="button"
                       onClick={() => setAddingTag(true)}
@@ -292,7 +293,7 @@ export function DetailView() {
                       <Tag className="w-3 h-3" />
                       <span>Add tag</span>
                     </button>
-                  )}
+                  ) : null}
                 </div>
 
                 {/* Expressive Action Bar */}
@@ -405,19 +406,19 @@ export function DetailView() {
                             : 'text-slate-900 dark:text-white'
                         )}
                       >
-                        {track.title}
+                        <MarqueeText text={track.title} />
                       </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                        {track.artist}
+                      <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 min-w-0">
+                        <MarqueeText text={track.artist} className="min-w-0" />
                         {track.duration !== null && (
                           <>
                             <span aria-hidden="true"> · </span>
-                            <span className="font-mono-nums">
+                            <span className="font-mono-nums shrink-0">
                               {formatDuration(track.duration)}
                             </span>
                           </>
                         )}
-                      </p>
+                      </div>
                     </div>
                   </button>
 
@@ -515,14 +516,14 @@ export function DetailView() {
                     {remote.kind}
                   </p>
                   <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-950 dark:text-white leading-tight">
-                    {remote.title}
+                    <MarqueeText text={remote.title} />
                   </h1>
                   <p className="text-sm text-slate-600 dark:text-slate-300">
                     {remote.subtitle}
                     {remote.tracks.length > 0 && (
                       <>
                         <span aria-hidden="true"> · </span>
-                        <span className="font-mono-nums">
+                        <span className="font-mono-nums shrink-0">
                           {remote.tracks.length} tracks · {totalDurationLabel}
                         </span>
                       </>
@@ -653,19 +654,19 @@ export function DetailView() {
                               : 'text-slate-900 dark:text-white'
                           )}
                         >
-                          {track.title}
+                          <MarqueeText text={track.title} />
                         </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                          {track.artist}
+                        <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 min-w-0">
+                          <MarqueeText text={track.artist} className="min-w-0" />
                           {track.duration !== null && (
                             <>
                               <span aria-hidden="true"> · </span>
-                              <span className="font-mono-nums">
+                              <span className="font-mono-nums shrink-0">
                                 {formatDuration(track.duration)}
                               </span>
                             </>
                           )}
-                        </p>
+                        </div>
                       </div>
                     </button>
                     <TrackContextMenu track={track} />
