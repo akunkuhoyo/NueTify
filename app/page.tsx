@@ -5,7 +5,6 @@ import { AuthGate } from '@/components/AuthGate';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ChartsView } from '@/components/ChartsView';
 import { DetailView } from '@/components/DetailView';
-import { DynamicIsland } from '@/components/DynamicIsland';
 import { HomeView } from '@/components/HomeView';
 import { LibraryView } from '@/components/LibraryView';
 import { LiquidGlassFilterDefs } from '@/components/LiquidGlassSurface';
@@ -47,8 +46,6 @@ function SonoraShell() {
         <div ref={ytContainerRef} className="w-full h-full" />
       </div>
 
-      {/* iPhone 17 / 18 Dynamic Island & Background Popup Engine */}
-      <DynamicIsland />
 
       <Sidebar />
 
