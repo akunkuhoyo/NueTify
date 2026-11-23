@@ -130,7 +130,7 @@ export const DEFAULT_SETTINGS: PlayerSettings = {
   accentPreset: 'metrolist',
   dockStyle: 'default',
   playerBackgroundStyle: 'GRADIENT',
-  sliderStyle: 'SQUIGGLY',
+  sliderStyle: 'DEFAULT',
   playerControlsStyle: 'EXPRESSIVE',
   aodClockStyle: 'BOLD',
   aodArtworkShape: 'SQUIRCLE',
