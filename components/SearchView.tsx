@@ -180,7 +180,11 @@ export function SearchView() {
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
   const inputRef = useRef<HTMLInputElement | null>(null);
   const suggestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [visibleSongs, setVisibleSongs] = useState(5); const loadMoreRef = useRef<HTMLDivElement | null>(null); useEffect(() => { setVisibleSongs(5); }, [results, query]); useEffect(() => { const el = loadMoreRef.current; if (!el) return; const observer = new IntersectionObserver((entries) => { if (entries[0]?.isIntersecting) { setVisibleSongs((prev) => prev + 5); } }, { rootMargin: '120px' }); observer.observe(el); return () => observer.disconnect(); }, [results, activeTab, visibleSongs]);
+  const [visibleSongs, setVisibleSongs] = useState(5);
+  const [searchPage, setSearchPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreRemote, setHasMoreRemote] = useState(true);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
   
   const localResults = useMemo(() => {
     if (scope !== 'local') return { tracks: [], playlists: [] };
@@ -213,7 +217,10 @@ export function SearchView() {
       setLoading(true);
       setError(null);
       addSearchHistory(trimmed);
-
+      setVisibleSongs(5);
+      setSearchPage(1);
+      setHasMoreRemote(true);
+      
       try {
         const headers: Record<string, string> = {};
         if (settings.ytCookie.trim()) {
@@ -259,6 +266,106 @@ export function SearchView() {
     },
     [activeTab, addSearchHistory, settings.hideVideoSongs, settings.region, settings.ytCookie]
   );
+  const loadMoreSongs = useCallback(async () => {
+    if (visibleSongs < sortedOnlineTracks.length) {
+      setVisibleSongs((prev) => prev + 5);
+      return;
+    }
+    if (
+      !hasMoreRemote ||
+      loadingMore ||
+      !submittedQuery ||
+      (activeTab !== 'all' && activeTab !== 'songs' && activeTab !== 'videos')
+    ) {
+      return;
+    }
+
+    setLoadingMore(true);
+    try {
+      const nextPage = searchPage + 1;
+      const headers: Record<string, string> = {};
+      if (settings.ytCookie.trim()) {
+        headers['x-yt-cookie'] = settings.ytCookie.trim();
+      }
+      const res = await fetch(
+        `/api/music/search?q=${encodeURIComponent(submittedQuery)}&type=${activeTab}&gl=${settings.region}&page=${nextPage}`,
+        { headers }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as {
+        results?: Array<Track & { kind?: string }>;
+        hasMore?: boolean;
+      };
+      const rawTracks = (data.results || []).filter(
+        (i): i is Track & { kind: 'TRACK' } => i.kind === 'TRACK'
+      );
+      const filteredTracks = settings.hideVideoSongs
+        ? rawTracks.filter((t) => t.type !== 'VIDEO')
+        : rawTracks;
+
+      let addedCount = 0;
+      setResults((prev) => {
+        if (!prev) return prev; const existingIds = new Set(prev.tracks.map((t) => t.videoId));
+        const newTracks = filteredTracks.filter((t) => t.videoId && !existingIds.has(t.videoId));
+        addedCount = newTracks.length;
+        if (addedCount === 0) return prev;
+        return {
+          ...prev,
+          tracks: [...prev.tracks, ...newTracks],
+        };
+      });
+
+      setSearchPage(nextPage);
+      if (addedCount > 0) {
+        setVisibleSongs((prev) => prev + 5);
+      }
+      setHasMoreRemote(Boolean(data.hasMore) && addedCount > 0);
+    } catch {
+      // ignore load-more errors
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [
+    visibleSongs,
+    sortedOnlineTracks.length,
+    hasMoreRemote,
+    loadingMore,
+    submittedQuery,
+    activeTab,
+    searchPage,
+    settings.ytCookie,
+    settings.region,
+    settings.hideVideoSongs,
+  ]);
+
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          void loadMoreSongs();
+        }
+      },
+      { rootMargin: '260px' }
+    );
+    observer.observe(el);
+
+    const handleScroll = () => {
+      const distanceToBottom =
+        document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+      if (distanceToBottom <= 260) {
+        void loadMoreSongs();
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [loadMoreSongs]);
+
 
   useEffect(() => {
     if (suggestTimeoutRef.current) clearTimeout(suggestTimeoutRef.current);
@@ -1058,7 +1165,7 @@ export function SearchView() {
                   );
                 })}
               </div>
-     {visibleSongs < sortedOnlineTracks.length && (<div ref={loadMoreRef} className="py-3 text-center text-xs text-[#8E8E93]">Memuat 5 lagu berikutnya...</div>)}
+     {(visibleSongs < sortedOnlineTracks.length || (hasMoreRemote && (activeTab === 'all' || activeTab === 'songs' || activeTab === 'videos'))) && (<div ref={loadMoreRef} onClick={() => void loadMoreSongs()} role="button" tabIndex={0} className="py-3 text-center text-xs text-[#8E8E93] cursor-pointer hover:text-white transition-colors">{loadingMore ? 'Memuat 5 lagu berikutnya...' : 'Scroll atau ketuk untuk memuat 5 lagu lagi'}</div>)}
             </section>
           )}
 
