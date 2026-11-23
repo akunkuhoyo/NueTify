@@ -681,7 +681,7 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
         radioFetchingRef.current = currentTrack.videoId;
         try {
           const res = await fetch(
-            `/api/music/up-next?videoId=${encodeURIComponent(currentTrack.videoId)}&gl=${settings.region}`
+            `/api/music/up-next?videoId=${encodeURIComponent(currentTrack.videoId)}&title=${encodeURIComponent(currentTrack.title)}&artist=${encodeURIComponent(currentTrack.artist)}&gl=${settings.region}`
           );
           const data = (await res.json()) as { tracks?: Track[] };
           if (!cancelled && data.tracks && data.tracks.length > 0) {
