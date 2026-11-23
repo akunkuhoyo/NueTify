@@ -139,7 +139,8 @@ const SECTIONS: LegalSection[] = [
         label: 'Larangan Scraping Ilegal & Reverse Engineering',
         text: 'Dilarang melakukan scraping massal terhadap endpoint internal NueTify, melakukan dekompilasi, membongkar kode biner APK com.ptnuevagroup.nuetify, atau mengeksploitasi infrastruktur server untuk tujuan komersial tanpa izin tertulis.'
       }
-    ]  {
+    ]  },
+  {
     id: 'pasal-6',
     number: 'Pasal 6',
     title: 'Sistem Integritas Leaderboard & Kewenangan Administrator',
