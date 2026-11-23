@@ -21,6 +21,7 @@ import {
   User,
 } from 'lucide-react';
 import { useMusic } from './MusicProvider';
+import { MarqueeText } from './MarqueeText';
 import { useAuth } from './AuthProvider';
 import { ArtworkImage } from './ArtworkImage';
 import { LeaderboardSection } from './LeaderboardSection';
@@ -640,16 +641,14 @@ return (
       </button>
 
       <div className="min-w-0 flex-1 space-y-1.5">
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#242424] border border-[#C0C0C0]/20 text-[10.5px] font-bold uppercase tracking-wider text-[#C0C0C0]">
-          <Sparkles className="w-3 h-3" />
-          {currentTrack ? 'Continue Session' : 'Daily Spotlight Mix'}
-        </span>
-        <h2 className="text-[19px] sm:text-[23px] font-extrabold tracking-tight text-white leading-tight line-clamp-2">
-          {spotlightTrack.title}
-        </h2>
-        <p className="text-[13px] text-[#B3B3B3] truncate">
-          {spotlightTrack.artist}
-        </p>
+       <MarqueeText
+                  text={spotlightTrack.title}
+                  className="text-[19px] sm:text-[23px] font-extrabold tracking-tight text-white leading-tight"
+                />
+                <MarqueeText
+                  text={spotlightTrack.artist}
+                  className="text-[13px] text-[#B3B3B3]"
+                />
         <p className="text-[11px] text-[#8E8E93]">
           {mixPool.length} lagu kurasi · NueTify 24/7
         </p>
