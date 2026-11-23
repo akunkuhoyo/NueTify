@@ -204,9 +204,7 @@ export async function GET(req: NextRequest) {
         allRes.status === 'fulfilled'
           ? allRes.value.map(normalizeSearchItem).filter(Boolean)
           : [];
-      const allTracks = allItems.filter(
-        (item): item is Extract<typeof item, { kind: 'TRACK' }> => item !== null && item.kind === 'TRACK'
-      );
+      const allTracks = allItems.filter((item) => item !== null && item.kind === 'TRACK') as unknown as TrackCandidate[];
       const nonTracks =
         type === 'all'
           ? allItems.filter((item) => item && item.kind !== 'TRACK')
