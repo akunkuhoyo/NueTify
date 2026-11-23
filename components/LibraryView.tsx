@@ -85,6 +85,9 @@ export function LibraryView() {
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [importInput, setImportInput] = useState('');
   const [importing, setImporting] = useState(false);
+  const [spotifyUrl, setSpotifyUrl] = useState('');
+  const [importingSpotify, setImportingSpotify] = useState(false);
+  const [spotifyImportMsg, setSpotifyImportMsg] = useState<string | null>(null);
 
   const autoMixes = useMemo(
     () => buildAutoTopMixes(history, likedTracks),
@@ -175,6 +178,49 @@ export function LibraryView() {
       showToast('Could not import playlist. Check the URL or ID.');
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleImportSpotifyPlaylist = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = spotifyUrl.trim();
+    if (!raw) return;
+    setImportingSpotify(true);
+    setSpotifyImportMsg(null);
+    try {
+      const res = await fetch(
+        `/api/music/spotify-import?url=${encodeURIComponent(raw)}&gl=${settings.region}`
+      );
+      const data = (await res.json()) as {
+        title?: string;
+        tracks?: Parameters<typeof createPlaylist>[2];
+        totalSourceTracks?: number;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error || 'Gagal mengimpor playlist Spotify.');
+      }
+      if (data.tracks && data.tracks.length > 0) {
+        createPlaylist(
+          data.title || 'Spotify Playlist',
+          'Imported from Spotify',
+          data.tracks
+        );
+        const msg = `Berhasil mengimpor "${data.title || 'Spotify Playlist'}" (${data.tracks.length}/${data.totalSourceTracks ?? data.tracks.length} lagu).`;
+        setSpotifyImportMsg(msg);
+        showToast(msg);
+        setSpotifyUrl('');
+      } else {
+        const msg = 'Tidak ada lagu yang cocok ditemukan dari playlist Spotify tersebut.';
+        setSpotifyImportMsg(msg);
+        showToast(msg);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Gagal mengimpor playlist Spotify.';
+      setSpotifyImportMsg(msg);
+      showToast(msg);
+    } finally {
+      setImportingSpotify(false);
     }
   };
 
@@ -445,6 +491,39 @@ export function LibraryView() {
                 )}
               </button>
             </form>
+          </div>
+
+          <div className="space-y-2">
+            <form
+              onSubmit={handleImportSpotifyPlaylist}
+              className="rounded-3xl metro-surface p-3 flex items-center gap-2"
+            >
+              <Link2 className="w-4 h-4 text-emerald-400 ml-1 shrink-0" />
+              <input
+                type="text"
+                value={spotifyUrl}
+                onChange={(e) => setSpotifyUrl(e.target.value)}
+                placeholder="Import Spotify Playlist URL or ID..."
+                aria-label="Spotify playlist URL or ID"
+                className="flex-1 h-10 px-3.5 rounded-2xl bg-black/5 dark:bg-white/[0.06] text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={!spotifyUrl.trim() || importingSpotify}
+                className="h-10 px-4 rounded-full bg-[var(--m3-primary-container)] text-[var(--m3-on-primary-container)] text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {importingSpotify ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <span>Import</span>
+                )}
+              </button>
+            </form>
+            {spotifyImportMsg && (
+              <p className="text-xs px-3 text-slate-600 dark:text-slate-300">
+                {spotifyImportMsg}
+              </p>
+            )}
           </div>
 
           {/* Playlist Tag Filter Bar */}
