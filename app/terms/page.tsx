@@ -518,5 +518,5 @@ export default function TermsOfServicePage() {
   );
 }
 
-  },
+  
   
