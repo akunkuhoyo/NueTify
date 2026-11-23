@@ -239,14 +239,14 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
   const [savedCollection, setSavedCollection] = useState<SavedCollectionItem[]>([]);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const [settings, setSettings] = useState<PlayerSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<PlayerSettings>({ ...DEFAULT_SETTINGS, theme: 'dark' });
   const [playlistPickerTrack, setPlaylistPickerTrack] = useState<Track | null>(null);
   const { user, cloudMusicData, cloudRevision, syncMusicData } = useAuth();
   const skipCloudPushRef = useRef(false);
   useEffect(() => {
 if (cloudRevision > 0 && cloudMusicData) {
 skipCloudPushRef.current = true;
-if (cloudMusicData.settings && typeof cloudMusicData.settings === 'object') setSettings({ ...DEFAULT_SETTINGS, ...cloudMusicData.settings });
+if (cloudMusicData.settings && typeof cloudMusicData.settings === 'object') setSettings({ ...DEFAULT_SETTINGS, ...cloudMusicData.settings, theme: 'dark' });
 if (Array.isArray(cloudMusicData.playlists)) setPlaylists(cloudMusicData.playlists);
 if (Array.isArray(cloudMusicData.likedTracks)) setLikedTracks(cloudMusicData.likedTracks);
 if (Array.isArray(cloudMusicData.history)) setHistory(cloudMusicData.history);
@@ -260,6 +260,11 @@ return () => clearTimeout(timer);
 if (!user || !hydrated || skipCloudPushRef.current) return;
 syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedCollection });
 }, [user, hydrated, settings, playlists, likedTracks, history, searchHistory, savedCollection, syncMusicData]);
+    const latestLibraryRef = useRef({ settings, playlists, likedTracks, history, searchHistory, savedCollection });
+  latestLibraryRef.current = { settings, playlists, likedTracks, history, searchHistory, savedCollection };
+  const latestSyncMetaRef = useRef({ user, hydrated, syncMusicData });
+  latestSyncMetaRef.current = { user, hydrated, syncMusicData };
+  const flushLibrarySync = useCallback(() => { const { user: activeUser, hydrated: isHydrated, syncMusicData: syncFn } = latestSyncMetaRef.current; if (!activeUser || !isHydrated || skipCloudPushRef.current) return; syncFn(latestLibraryRef.current); }, []);
   
   const [lyrics, setLyrics] = useState<LyricsPayload | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
@@ -738,7 +743,7 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
     if (typeof document === 'undefined') return;
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
+      if (document.visibilityState === 'hidden') { flushLibrarySync();
         if (
           settingsRef.current.backgroundPlay &&
           intendedPlayingRef.current &&
@@ -752,7 +757,7 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
       } else {
         bgRecoveryCountRef.current = 0;
         lastTickMsRef.current = Date.now();
-        if (intendedPlayingRef.current && !userPausedRef.current) {
+        const ytState = ytPlayerRef.current?.getPlayerState?.(); if (intendedPlayingRef.current && !userPausedRef.current && ytState !== 1 && ytState !== 3 && (ytState === 2 || ytState === -1)) {
           resumePlaybackKeepAlive();
         }
         if (ytReadyRef.current && ytPlayerRef.current) {
@@ -777,16 +782,17 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
         resumePlaybackKeepAlive();
       }
     };
-
+    const handlePageShow = () => { const ytState = ytPlayerRef.current?.getPlayerState?.(); if (intendedPlayingRef.current && !userPausedRef.current && ytState !== 1 && ytState !== 3 && (ytState === 2 || ytState === -1)) { resumePlaybackKeepAlive(); } };
+    
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleWindowBlur);
-    window.addEventListener('pageshow', handleWindowBlur);
+    window.addEventListener('pageshow', handlePageShow); window.addEventListener('pagehide', flushLibrarySync);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
-      window.removeEventListener('pageshow', handleWindowBlur);
+      window.removeEventListener('pageshow', handlePageShow); window.removeEventListener('pagehide', flushLibrarySync);
     };
-  }, [resumePlaybackKeepAlive]);
+  }, [resumePlaybackKeepAlive, flushLibrarySync]);
 
   // Playback progress ticker (Wall-clock drift-corrected + involuntary-pause watchdog) + Sleep timer monitor
   useEffect(() => {
@@ -1503,7 +1509,7 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
 
   const updateSettings = useCallback((patch: Partial<PlayerSettings>) => {
     setSettings((prev) => {
-      const next = { ...prev, ...patch };
+      const next: PlayerSettings = { ...prev, ...patch, theme: 'dark' };
       saveSettings(next);
       if (patch.playbackRate && ytReadyRef.current && ytPlayerRef.current) {
         try {
