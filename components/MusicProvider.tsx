@@ -239,14 +239,14 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
   const [playlists, setPlaylists] = useState<UserPlaylist[]>([]);
   const [savedCollection, setSavedCollection] = useState<SavedCollectionItem[]>([]);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const [settings, setSettings] = useState<PlayerSettings>({ ...DEFAULT_SETTINGS, theme: 'dark' });
+  const [settings, setSettings] = useState<PlayerSettings>({ ...DEFAULT_SETTINGS, theme: 'dark', dockStyle: 'default' });
   const [playlistPickerTrack, setPlaylistPickerTrack] = useState<Track | null>(null);
   const { user, cloudMusicData, cloudRevision, syncMusicData } = useAuth();
   const skipCloudPushRef = useRef(false);
   useEffect(() => {
 if (cloudRevision > 0 && cloudMusicData) {
 skipCloudPushRef.current = true;
-if (cloudMusicData.settings && typeof cloudMusicData.settings === 'object') setSettings({ ...DEFAULT_SETTINGS, ...cloudMusicData.settings, theme: 'dark' });
+if (cloudMusicData.settings && typeof cloudMusicData.settings === 'object') setSettings({ ...DEFAULT_SETTINGS, ...cloudMusicData.settings, theme: 'dark', dockStyle: 'default' });
 if (Array.isArray(cloudMusicData.playlists)) setPlaylists(cloudMusicData.playlists);
 if (Array.isArray(cloudMusicData.likedTracks)) setLikedTracks(cloudMusicData.likedTracks);
 if (Array.isArray(cloudMusicData.history)) setHistory(cloudMusicData.history);
@@ -1509,7 +1509,7 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
 
   const updateSettings = useCallback((patch: Partial<PlayerSettings>) => {
     setSettings((prev) => {
-      const next: PlayerSettings = { ...prev, ...patch, theme: 'dark' };
+      const next: PlayerSettings = { ...prev, ...patch, theme: 'dark', dockStyle: 'default' };
       saveSettings(next);
       if (patch.playbackRate && ytReadyRef.current && ytPlayerRef.current) {
         try {
