@@ -600,9 +600,23 @@ export function HomeView() {
           {/* 1. Editorial Featured Spotlight Banner (Distinct visual anchor) */}
                          {spotlightTrack && (() => {
 const mixPool = quickPicks.length > 0 ? quickPicks : remoteTracks;
-const previewTracks = mixPool
-  .filter((t) => t.videoId !== spotlightTrack.videoId)
-  .slice(0, 2);
+const seenIds = new Set<string>([spotlightTrack.videoId]);
+                  const previewTracks: typeof mixPool = [];
+                  for (const ev of history) {
+                    const t = ev.track;
+                    if (!t || seenIds.has(t.videoId)) continue;
+                    seenIds.add(t.videoId);
+                    previewTracks.push(t);
+                    if (previewTracks.length >= 2) break;
+                  }
+                  if (previewTracks.length < 2) {
+                    for (const t of mixPool) {
+                      if (seenIds.has(t.videoId)) continue;
+                      seenIds.add(t.videoId);
+                      previewTracks.push(t);
+                      if (previewTracks.length >= 2) break;
+                    }
+                  }
 const isActiveSpotlight =
   currentTrack?.videoId === spotlightTrack.videoId && isPlaying;
 
