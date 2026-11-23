@@ -51,7 +51,8 @@ export async function GET() {
   }
 
   const byUser = new Map<string, LeaderboardRow>();
-const authMap = new Map<string, { emailPrefix: string; metaName: string; metaAvatar: string }>();
+const authMap = new Map<string, { emailPrefix: string; metaName: string; metaAvatar: string; customAvatar: string }>();
+  const profMap = new Map<string, { display_name: string; avatar_url: string }>();
   // 1. Coba baca tabel listening_leaderboard menggunakan anonKey (publik RLS)
   try {
     const anonClient = createClient(url, anonKey, { auth: { persistSession: false } });
@@ -75,11 +76,11 @@ const authMap = new Map<string, { emailPrefix: string; metaName: string; metaAva
   if (serviceKey) {
     try {
       const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-      const [{ data: musicRows }, { data: profileRows }, authListRes] = await Promise.all([
+      const [{ data: musicRows }, { data: profileRows }, authListRes, { data: overrideRow }] = await Promise.all([
         admin.from('user_music_data').select('user_id, data').limit(200),
-        admin.from('user_profiles').select('id, display_name, avatar_url').limit(200), admin.auth.admin.listUsers({ perPage: 200 }).catch(() => ({ data: { users: [] } })),
-      ]); for (const u of authListRes?.data?.users || []) { const emailPrefix = (u.email || '').split('@')[0].trim().toLowerCase(); const metaName = String(u.user_metadata?.display_name || u.user_metadata?.full_name || u.user_metadata?.name || '').trim(); const metaAvatar = String(u.user_metadata?.avatar_url || u.user_metadata?.picture || '').trim(); authMap.set(u.id, { emailPrefix, metaName, metaAvatar }); }
-      const profMap = new Map<string, { display_name: string; avatar_url: string }>();
+        admin.from('user_profiles').select('id, display_name, avatar_url').limit(200), admin.auth.admin.listUsers({ perPage: 200 }).catch(() => ({ data: { users: [] } })), admin.from('app_config').select('value').eq('key', 'leaderboard_overrides').maybeSingle(),
+      ]); for (const u of authListRes?.data?.users || []) { const emailPrefix = (u.email || '').split('@')[0].trim().toLowerCase(); const metaName = String(u.user_metadata?.display_name || u.user_metadata?.full_name || u.user_metadata?.name || '').trim(); const metaAvatar = String(u.user_metadata?.avatar_url || u.user_metadata?.picture || '').trim(); const customAvatar = String(u.user_metadata?.custom_avatar_url || '').trim(); authMap.set(u.id, { emailPrefix, metaName, metaAvatar, customAvatar }); }
+      
       if (Array.isArray(profileRows)) {
         for (const p of profileRows as Array<{ id: string; display_name?: string; avatar_url?: string }>) {
           profMap.set(p.id, {
@@ -105,7 +106,8 @@ const authMap = new Map<string, { emailPrefix: string; metaName: string; metaAva
             });
           }
         }
-      }
+      } const overrides = (overrideRow?.value && typeof overrideRow.value === 'object' ? overrideRow.value : {}) as Record<string, { total_seconds?: number; total_plays?: number }>;
+      for (const [uid, ov] of Object.entries(overrides)) { if (!ov || typeof ov !== 'object') continue; const ovSec = Number(ov.total_seconds); const ovPlay = Number(ov.total_plays); const safeSec = Number.isFinite(ovSec) && ovSec >= 0 ? Math.floor(ovSec) : undefined; const safePlay = Number.isFinite(ovPlay) && ovPlay >= 0 ? Math.floor(ovPlay) : undefined; const prev = byUser.get(uid); if (prev) { byUser.set(uid, { ...prev, total_seconds: safeSec !== undefined ? safeSec : prev.total_seconds, total_plays: safePlay !== undefined ? safePlay : prev.total_plays }); } else if ((safeSec ?? 0) > 0 || (safePlay ?? 0) > 0) { const prof = profMap.get(uid); const authInfo = authMap.get(uid); byUser.set(uid, { user_id: uid, display_name: prof?.display_name || authInfo?.metaName || 'Pengguna NueTify', avatar_url: prof?.avatar_url || authInfo?.customAvatar || authInfo?.metaAvatar || '', total_seconds: safeSec ?? 0, total_plays: safePlay ?? 0, is_verified: uid === 'ebc0b783-4ebd-44b2-89de-990c57cfd297' }); } }
     } catch {
       // ignore if service key unavailable
     }
@@ -115,7 +117,7 @@ const authMap = new Map<string, { emailPrefix: string; metaName: string; metaAva
     .sort((a, b) => b.total_seconds - a.total_seconds)
     .slice(0, 50)
     .map((row) => { const authInfo = authMap.get(row.user_id); return {
-      ...row, display_name: pickLeaderboardName(row.display_name, authInfo), avatar_url: row.avatar_url || authInfo?.metaAvatar || '',
+      ...row, display_name: pickLeaderboardName(row.display_name, authInfo), avatar_url:profMap.get(row.user_id)?.avatar_url || authInfo?.customAvatar ||  row.avatar_url || authInfo?.metaAvatar || '',
       is_verified: row.user_id === 'ebc0b783-4ebd-44b2-89de-990c57cfd297',
     }; });
 
@@ -153,17 +155,18 @@ export async function POST(req: NextRequest) {
   }
 
   const u = userData.user;
-  const totalSeconds = Math.max(1, Math.floor(Number(body.totalSeconds || 0)));
-  const totalPlays = Math.max(1, Math.floor(Number(body.totalPlays || 0)));
+  const rawTotalSeconds = Number(body.totalSeconds); const rawTotalPlays = Number(body.totalPlays); if (!Number.isFinite(rawTotalSeconds) || rawTotalSeconds < 0 || !Number.isFinite(rawTotalPlays) || rawTotalPlays < 0) { return NextResponse.json({ ok: false, error: 'Invalid stats' }, { status: 400 }); } let totalSeconds = Math.floor(rawTotalSeconds);
+  let totalPlays = Math.floor(rawTotalPlays);
   const emailPrefix = (u.email || '').split('@')[0].trim().toLowerCase();
   const metaName = String(u.user_metadata?.display_name || u.user_metadata?.full_name || u.user_metadata?.name || '').trim();
   const rawBodyName = (body.displayName || '').trim();
-  const displayName = rawBodyName && rawBodyName.toLowerCase() !== emailPrefix ? rawBodyName : metaName || 'Pengguna NueTify';
+  const displayName = rawBodyName && rawBodyName.toLowerCase() !== emailPrefix ? rawBodyName : metaName || 'Pengguna NueTify'; const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''; const admin = serviceKey ? createClient(url, serviceKey, { auth: { persistSession: false } }) : null; let existingProfile: { avatar_url?: string | null } | null = null;
+  if (admin) { const [{ data: existing }, { data: prof }, { data: overrideRow }] = await Promise.all([ admin.from('listening_leaderboard').select('total_seconds, total_plays, updated_at').eq('user_id', u.id).maybeSingle(), admin.from('user_profiles').select('avatar_url').eq('id', u.id).maybeSingle(), admin.from('app_config').select('value').eq('key', 'leaderboard_overrides').maybeSingle() ]); existingProfile = prof; const overrides = (overrideRow?.value && typeof overrideRow.value === 'object' ? overrideRow.value : {}) as Record<string, { total_seconds?: number; total_plays?: number }>; const adminOv = overrides[u.id]; if (adminOv && typeof adminOv === 'object') { if (Number.isFinite(Number(adminOv.total_seconds)) && Number(adminOv.total_seconds) >= 0) totalSeconds = Math.floor(Number(adminOv.total_seconds)); if (Number.isFinite(Number(adminOv.total_plays)) && Number(adminOv.total_plays) >= 0) totalPlays = Math.floor(Number(adminOv.total_plays)); } else { const prevMs = existing?.updated_at ? new Date(existing.updated_at).getTime() : NaN; const elapsedSec = Number.isFinite(prevMs) ? Math.max(60, Math.floor((Date.now() - prevMs) / 1000)) : 3600; const maxAllowedSeconds = (existing?.total_seconds || 0) + Math.max(900, Math.floor(elapsedSec * 2.5)); const maxAllowedPlays = (existing?.total_plays || 0) + Math.max(15, Math.ceil(elapsedSec / 20)); totalSeconds = Math.min(totalSeconds, maxAllowedSeconds); totalPlays = Math.min(totalPlays, maxAllowedPlays); } }
   const avatarUrl =
-    (body.avatarUrl || '').trim() ||
-    String(u.user_metadata?.avatar_url || u.user_metadata?.picture || '');
+    String(existingProfile?.avatar_url || '').trim() || (body.avatarUrl || '').trim() ||
+    String(u.user_metadata?.custom_avatar_url || u.user_metadata?.avatar_url || u.user_metadata?.picture || '');
 
-  const { error: upsertErr } = await userClient.from('listening_leaderboard').upsert(
+  const { error: upsertErr } = await (admin || userClient).from('listening_leaderboard').upsert(
     {
       user_id: u.id,
       display_name: displayName,
