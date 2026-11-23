@@ -80,9 +80,9 @@ export function PlayerSlider({
     }
   };
 
-  const trackHeight = style === 'SLIM' ? 'h-[3px]' : 'h-1';
+     const trackHeight = style === 'DEFAULT' ? 'h-1' : 'h-[2.5px]'; const isWave = style === 'SQUIGGLY' || style === 'WAVY'; const wavePath = isWave ? Array.from({ length: 151 }, (_, i) => `${i === 0 ? 'M' : 'L'}${i * 2},${(8 + Math.sin(((i * 2) / (style === 'SQUIGGLY' ? 12 : 30)) * Math.PI * 2) * (style === 'SQUIGGLY' ? 3.5 : 3)).toFixed(2)}`).join(' ') : '';
 
-  return (
+    return (
     <div
       ref={containerRef}
       role="slider"
@@ -103,12 +103,7 @@ export function PlayerSlider({
     >
       {/* Straight Background Track */}
       <div className={cn('relative w-full overflow-hidden rounded-full bg-white/20', trackHeight)}>
-        {/* Solid Straight Progress Bar */}
-        <div
-          className="h-full rounded-full bg-[var(--m3-primary,#C0C0C0)] transition-[width] duration-75 ease-linear"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+    {!isWave && <div className="h-full rounded-full bg-[var(--m3-primary,#C0C0C0)] transition-[width] duration-75 ease-linear" style={{ width: `${pct}%` }} />}</div>{isWave && <svg viewBox="0 0 300 16" preserveAspectRatio="none" className="pointer-events-none absolute left-0 top-1/2 h-4 w-full -translate-y-1/2" style={{ clipPath: `inset(0 ${100 - pct}% 0 0)` }}><path d={wavePath} fill="none" stroke="var(--m3-primary, #C0C0C0)" strokeWidth={2.5} strokeLinecap="round" vectorEffect="non-scaling-stroke" /></svg>}
 
       {/* Clean Thumb */}
       {style !== 'SLIM' && (
