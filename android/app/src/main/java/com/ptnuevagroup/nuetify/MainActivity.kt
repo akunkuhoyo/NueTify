@@ -2,6 +2,10 @@ package com.ptnuevagroup.nuetify
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import androidx.core.content.FileProvider
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -383,12 +387,63 @@ class MainActivity : AppCompatActivity() {
                 ""
             }
         }
-    }
 
+
+        @JavascriptInterface
+        fun downloadAndInstallApk(url: String, version: String) {
+            runOnUiThread {
+                try {
+                    val fileName = "NueTify-${version}.apk"
+                    val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+                    val request = DownloadManager.Request(Uri.parse(url))
+                        .setTitle("NueTify v${version}")
+                        .setDescription("Mengunduh update aplikasi...")
+                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                        .setMimeType("application/vnd.android.package-archive")
+                    val downloadId = dm.enqueue(request)
+                    Toast.makeText(this@MainActivity, "Mengunduh update NueTify...", Toast.LENGTH_LONG).show()
+
+                    val receiver = object : BroadcastReceiver() {
+                        override fun onReceive(context: Context?, intent: Intent?) {
+                            val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L) ?: -1L
+                            if (id == downloadId) {
+                                try {
+                                    unregisterReceiver(this)
+                                } catch (_: Exception) {}
+                                try {
+                                    val apkUri = dm.getUriForDownloadedFile(downloadId)
+                                    if (apkUri != null) {
+                                        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                                            setDataAndType(apkUri, "application/vnd.android.package-archive")
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        startActivity(installIntent)
+                                    }
+                                } catch (_: Exception) {}
+                            }
+                        }
+                    }
+                    ContextCompat.registerReceiver(
+                        this@MainActivity,
+                        receiver,
+                        IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                        ContextCompat.RECEIVER_EXPORTED
+                    )
+                } catch (_: Exception) {
+                    Toast.makeText(this@MainActivity, "Gagal mengunduh update", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+}
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (::webView.isInitialized && webView.canGoBack()) {
-            webView.goBack()
+        if (::webView.isInitialized) {
+            webView.evaluateJavascript("(function(){ return window.__nuetifyHandleBack ? window.__nuetifyHandleBack() : false; })()") { res ->
+                if (res != "true") {
+                    if (webView.canGoBack()) webView.goBack() else moveTaskToBack(true)
+                }
+            }
         } else {
             moveTaskToBack(true)
         }
