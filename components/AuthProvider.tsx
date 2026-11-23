@@ -23,6 +23,7 @@ export interface UserProfile {
   email: string;
   provider: string;
 }
+export interface UserBanInfo { reason: string; banned_until: string | null; }
 
 export type SyncStatus = 'idle' | 'syncing' | 'synced' | 'guest' | 'error';
 
@@ -34,6 +35,7 @@ interface AuthActionResult {
 interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
+  banInfo: UserBanInfo | null;
   isGuest: boolean;
   loading: boolean;
   isRecoveryMode: boolean;
@@ -92,6 +94,7 @@ function buildFallbackProfile(user: User): UserProfile {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [banInfo, setBanInfo] = useState<UserBanInfo | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
@@ -101,7 +104,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPushedJsonRef = useRef<string>('');
-
+const checkUserBan = useCallback(async (authUserId: string) => { const supabase = getSupabaseClient(); if (!supabase) return; try { const { data } = await supabase.from('user_bans').select('reason, banned_until, is_active').eq('user_id', authUserId).maybeSingle(); if (data && data.is_active && (!data.banned_until || new Date(data.banned_until).getTime() > Date.now())) { setBanInfo({ reason: data.reason || '', banned_until: data.banned_until ?? null }); window.dispatchEvent(new CustomEvent('nuetify-force-stop')); } else { setBanInfo(null); } } catch {} }, []);
+  
   const loadUserCloudState = useCallback(async (authUser: User) => {
     const supabase = getSupabaseClient();
     const fallback = buildFallbackProfile(authUser);
@@ -109,7 +113,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(fallback);
       return;
     }
-
+void checkUserBan(authUser.id);
+    
     setSyncStatus('syncing');
     try {
       const { data: profRow } = await supabase
@@ -343,7 +348,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               : prev
           );
         }
-      )
+      ).on('postgres_changes', { event: '*', schema: 'public', table: 'user_bans', filter: `user_id=eq.${user.id}` }, (payload) => { if (payload.eventType === 'DELETE') { setBanInfo(null); return; } const row = payload.new as { reason?: string; banned_until?: string | null; is_active?: boolean } | null; if (row && row.is_active && (!row.banned_until || new Date(row.banned_until).getTime() > Date.now())) { setBanInfo({ reason: row.reason || '', banned_until: row.banned_until ?? null }); window.dispatchEvent(new CustomEvent('nuetify-force-stop')); } else { setBanInfo(null); } })
+      
       .subscribe();
 
     return () => {
@@ -660,7 +666,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await supabase.auth.signOut();
     }
     setUser(null);
-    setProfile(null);
+    setProfile(null); setBanInfo(null);
     setIsGuest(false);
     setCloudMusicData(null);
     setSyncStatus('idle');
@@ -674,7 +680,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      profile,
+      profile, banInfo,
       isGuest,
       loading,
       isRecoveryMode,
@@ -695,7 +701,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [
       user,
       profile,
-      isGuest,
+      isGuest, banInfo,
       loading,
       isRecoveryMode,
       syncStatus,
