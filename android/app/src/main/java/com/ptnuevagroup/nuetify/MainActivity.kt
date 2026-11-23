@@ -50,7 +50,8 @@ class MainActivity : AppCompatActivity() {
     private var equalizer: Equalizer? = null
     private var bassBoost: BassBoost? = null
     private var loudnessEnhancer: LoudnessEnhancer? = null
-
+    private var lastEqBandsJson: String = ""
+    private var lastBassBoostOn: Boolean = false
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -268,6 +269,8 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun setEqualizer(bandsJson: String, bassBoostOn: Boolean) {
+                   if (bandsJson == lastEqBandsJson && bassBoostOn == lastBassBoostOn) return;
+            lastEqBandsJson = bandsJson; lastBassBoostOn = bassBoostOn;
             runOnUiThread {
                 try {
                     if (equalizer == null && bassBoost == null && loudnessEnhancer == null) {
