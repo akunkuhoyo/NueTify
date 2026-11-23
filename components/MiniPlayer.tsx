@@ -7,11 +7,13 @@ import {
   Loader2,
   Pause,
   Play,
+SkipBack,
   SkipForward,
 } from 'lucide-react';
 import { ArtworkImage } from './ArtworkImage';
 import { LiquidGlassBackdropLayer } from './LiquidGlassSurface';
 import { useMusic } from './MusicProvider';
+import { MarqueeText } from './MarqueeText';
 import { formatDuration } from '@/lib/metrolist/lyrics';
 
 export function MiniPlayer() {
@@ -22,6 +24,7 @@ export function MiniPlayer() {
     currentTime,
     duration,
     togglePlayPause,
+    prevTrack,
     nextTrack,
     isLiked,
     toggleLike,
@@ -77,16 +80,17 @@ export function MiniPlayer() {
               sizeHint="sm"
             />
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-slate-900 dark:text-white truncate group-hover:text-[var(--m3-primary)] transition-colors">
-                {currentTrack.title}
-              </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                {currentTrack.artist}
-                <span aria-hidden="true"> · </span>
-                <span className="font-mono-nums">
-                  {formatDuration(currentTime)} / {formatDuration(duration)}
-                </span>
-              </p>
+              <MarqueeText
+                    text={currentTrack.title}
+                    className="text-sm font-semibold text-slate-900 dark:text-white group-hover:text-[var(--m3-primary)] transition-colors"
+                  />
+                  <div className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 min-w-0">
+                    <MarqueeText text={currentTrack.artist} className="min-w-0" />
+                    <span aria-hidden="true" className="shrink-0">·</span>
+                    <span className="font-mono-nums shrink-0">
+                      {formatDuration(currentTime)} / {formatDuration(duration)}
+                    </span>
+                  </div>
             </div>
           </button>
 
@@ -105,6 +109,14 @@ export function MiniPlayer() {
               />
             </button>
 
+                <button
+                  type="button"
+                  onClick={() => prevTrack()}
+                  aria-label="Previous track"
+                  className="min-h-[40px] min-w-[40px] sm:min-h-[44px] sm:min-w-[44px] flex items-center justify-center rounded-full text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-all"
+                >
+                  <SkipBack className="w-4 h-4 fill-current" />
+                </button>
             <button
               type="button"
               onClick={togglePlayPause}
