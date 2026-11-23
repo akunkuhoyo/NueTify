@@ -180,7 +180,8 @@ export function SearchView() {
   const [brokenImages, setBrokenImages] = useState<Record<string, boolean>>({});
   const inputRef = useRef<HTMLInputElement | null>(null);
   const suggestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  const [visibleSongs, setVisibleSongs] = useState(5); const loadMoreRef = useRef<HTMLDivElement | null>(null); useEffect(() => { setVisibleSongs(5); }, [results, query]); useEffect(() => { const el = loadMoreRef.current; if (!el) return; const observer = new IntersectionObserver((entries) => { if (entries[0]?.isIntersecting) { setVisibleSongs((prev) => prev + 5); } }, { rootMargin: '120px' }); observer.observe(el); return () => observer.disconnect(); }, [results, activeTab, visibleSongs]);
+  
   const localResults = useMemo(() => {
     if (scope !== 'local') return { tracks: [], playlists: [] };
     return searchLocalLibrary({
@@ -987,8 +988,8 @@ export function SearchView() {
                 </button>
               </div>
               <div className="rounded-[28px] metro-surface divide-y divide-black/5 dark:divide-white/[0.06]">
-                {sortedOnlineTracks.map((track, idx) => {
-                  const active = currentTrack?.videoId === track.videoId;
+              {sortedOnlineTracks.slice(0, visibleSongs).map((track, idx) => {
+              const active = currentTrack?.videoId === track.videoId;
                   return (
                     <div
                       key={`${track.videoId}-${idx}`}
@@ -1057,6 +1058,7 @@ export function SearchView() {
                   );
                 })}
               </div>
+     {visibleSongs < sortedOnlineTracks.length && (<div ref={loadMoreRef} className="py-3 text-center text-xs text-[#8E8E93]">Memuat 5 lagu berikutnya...</div>)}
             </section>
           )}
 
