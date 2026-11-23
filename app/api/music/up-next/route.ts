@@ -1,51 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SEED_TRACKS } from '@/lib/metrolist/seed';
-import { getYTMusicClient, normalizeSong, normalizeVideo } from '@/lib/server/ytmusic';
+import {
+  getYTMusicClient,
+  normalizeSong,
+  normalizeVideo,
+} from '@/lib/server/ytmusic';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
-type CandidateTrack = ReturnType<typeof normalizeSong> | ReturnType<typeof normalizeVideo>;
+type CandidateTrack = ReturnType<typeof normalizeSong>;
 
-interface VibeRule {
-  regex: RegExp;
-  query: string;
+const INDIAN_BOLLYWOOD_REGEX =
+  /\b(hindi|bollywood|punjabi|bhojpuri|tamil|telugu|arijit|alka|udit|badshah|neha kakkar|shreya|praveen|tiwari|narayan|bhool|shanti|dulhan|laila)\b/i;
+const DEVANAGARI_REGEX = /[\u0900-\u097F]/;
+
+const DJ_REMIX_REGEX =
+  /\b(dj|remix|rmx|slowbass|slowed|jedag|jedug|jj|tiktok|viral|full\s*bass|bass\s*glerr|funkot|breakbeat|koplo|dangdut)\b/i;
+
+function hasIndianIndicators(text: string): boolean {
+  return INDIAN_BOLLYWOOD_REGEX.test(text) || DEVANAGARI_REGEX.test(text);
 }
 
-const VIBE_RULES: VibeRule[] = [
-  {
-    regex: /\b(dj|remix|rmx|jedag\s*jedug|jj|slowbass|slow\s*bass|full\s*bass|breakbeat|funkot)\b/i,
-    query: 'DJ remix full bass',
-  },
-  {
-    regex: /\b(slowed|reverb|sped\s*up|nightcore|8d)\b/i,
-    query: 'slowed reverb',
-  },
-  {
-    regex: /\b(koplo|dangdut|campursari)\b/i,
-    query: 'dangdut koplo',
-  },
-  {
-    regex: /\b(phonk|montagem)\b/i,
-    query: 'phonk',
-  },
-  {
-    regex: /\b(lo-?fi|acoustic|akustik|sholawat|instrumental)\b/i,
-    query: 'lofi acoustic',
-  },
-];
-
-function lightShuffle<T>(items: T[], groupSize = 4): T[] {
-  const result: T[] = [];
-  for (let i = 0; i < items.length; i += groupSize) {
-    const chunk = items.slice(i, i + groupSize);
-    for (let j = chunk.length - 1; j > 0; j--) {
-      const k = Math.floor(Math.random() * (j + 1));
-      [chunk[j], chunk[k]] = [chunk[k], chunk[j]];
-    }
-    result.push(...chunk);
+function isUnrelatedForeignTrack(
+  track: { title?: string; artist?: string },
+  seedText: string
+): boolean {
+  if (hasIndianIndicators(seedText)) {
+    return false;
   }
-  return result;
+  const trackText = `${track.title || ''} ${track.artist || ''}`;
+  return hasIndianIndicators(trackText);
+}
+
+function extractPrimaryArtist(artist: string): string {
+  return artist
+    .split(/,|&|\bfeat\.?\b|\bft\.?\b|\bx\b/i)[0]
+    .trim();
 }
 
 export async function GET(req: NextRequest) {
@@ -54,73 +44,87 @@ export async function GET(req: NextRequest) {
   const title = (searchParams.get('title') || '').trim();
   const artist = (searchParams.get('artist') || '').trim();
   const gl = searchParams.get('gl') || 'ID';
+  const hl = gl.toUpperCase() === 'ID' ? 'id' : 'en';
 
   if (!videoId) {
-    return NextResponse.json({ tracks: [] }, { status: 400 });
+    return NextResponse.json({ tracks: [] });
   }
 
-  const primaryArtist = artist.split(/,|&|feat\.?|ft\.?|x\s/i)[0].trim();
-  const combinedText = `${title} ${artist}`.trim();
-  const matchedVibe = VIBE_RULES.find((rule) => rule.regex.test(combinedText));
-
   try {
-    const yt = await getYTMusicClient({ gl, hl: 'en' });
+    const yt = await getYTMusicClient({ gl, hl });
+    const seedText = `${title} ${artist}`.trim();
+    const primaryArtist = extractPrimaryArtist(artist);
+    const isDjMode = DJ_REMIX_REGEX.test(seedText);
 
     const seenIds = new Set<string>([videoId]);
     const seenTitles = new Set<string>();
     if (title) {
-      seenTitles.add(title.toLowerCase());
+      seenTitles.add(title.toLowerCase().trim());
     }
 
-    const dedupe = (list: CandidateTrack[]): CandidateTrack[] => {
-      const unique: CandidateTrack[] = [];
-      for (const item of list) {
-        if (!item?.videoId || seenIds.has(item.videoId)) continue;
-        const normTitle = (item.title || '').toLowerCase().trim();
-        if (normTitle && seenTitles.has(normTitle)) continue;
+    const dedupeAndFilter = (items: CandidateTrack[]): CandidateTrack[] => {
+      const result: CandidateTrack[] = [];
+      for (const item of items) {
+        if (!item.videoId || seenIds.has(item.videoId)) continue;
+        const normalizedTitle = (item.title || '').toLowerCase().trim();
+        if (normalizedTitle && seenTitles.has(normalizedTitle)) continue;
+        if (isUnrelatedForeignTrack(item, seedText)) continue;
         seenIds.add(item.videoId);
-        if (normTitle) seenTitles.add(normTitle);
-        unique.push(item);
+        if (normalizedTitle) {
+          seenTitles.add(normalizedTitle);
+        }
+        result.push(item);
       }
-      return unique;
+      return result;
     };
 
-    if (matchedVibe) {
-      const vibeQuery =
-        /\bsholawat\b/i.test(combinedText) ? 'sholawat' : matchedVibe.query;
-      const songQuery = primaryArtist ? `${vibeQuery} ${primaryArtist}` : vibeQuery;
-      const videoQuery = `${vibeQuery} viral`;
-
-      const [upNextRes, vibeSongsRes, vibeVideosRes] = await Promise.allSettled([
+    if (isDjMode) {
+      const [upNextRes, artistVideosRes] = await Promise.allSettled([
         yt.getUpNexts(videoId),
-        yt.searchSongs(songQuery),
-        yt.searchVideos(videoQuery),
+        primaryArtist
+          ? yt.searchVideos(`${primaryArtist} DJ remix`)
+          : Promise.resolve([]),
       ]);
 
-      const vibeSongs =
-        vibeSongsRes.status === 'fulfilled' ? vibeSongsRes.value.map(normalizeSong) : [];
-      const vibeVideos =
-        vibeVideosRes.status === 'fulfilled' ? vibeVideosRes.value.map(normalizeVideo) : [];
-      const upNexts =
-        upNextRes.status === 'fulfilled' ? upNextRes.value.map(normalizeSong) : [];
+      const rawUpNexts =
+        upNextRes.status === 'fulfilled'
+          ? upNextRes.value.map(normalizeSong)
+          : [];
+      const rawArtistVideos =
+        artistVideosRes.status === 'fulfilled'
+          ? artistVideosRes.value.map(normalizeVideo)
+          : [];
 
-      const merged = dedupe([...vibeSongs, ...vibeVideos, ...upNexts]);
-      const tierMatched: CandidateTrack[] = [];
-      const tierOther: CandidateTrack[] = [];
+      const filteredUpNexts = dedupeAndFilter(rawUpNexts);
+      const djVibeUpNexts = filteredUpNexts.filter((t) =>
+        DJ_REMIX_REGEX.test(`${t.title || ''} ${t.artist || ''}`)
+      );
+      const otherUpNexts = filteredUpNexts.filter(
+        (t) => !DJ_REMIX_REGEX.test(`${t.title || ''} ${t.artist || ''}`)
+      );
+      const filteredArtistVideos = dedupeAndFilter(rawArtistVideos);
 
-      for (const track of merged) {
-        if (matchedVibe.regex.test(`${track.title} ${track.artist}`)) {
-          tierMatched.push(track);
-        } else {
-          tierOther.push(track);
+      const combined: CandidateTrack[] = [
+        ...djVibeUpNexts,
+        ...filteredArtistVideos,
+        ...otherUpNexts,
+      ];
+
+      if (combined.length < 10) {
+        try {
+          const fallbackVideos = await yt.searchVideos(
+            'DJ tiktok viral indonesia full bass'
+          );
+          const normalizedFallback = dedupeAndFilter(
+            fallbackVideos.map(normalizeVideo)
+          );
+          combined.push(...normalizedFallback);
+        } catch {
+          // ignore fallback error
         }
       }
 
-      const tracks = [...lightShuffle(tierMatched, 4), ...lightShuffle(tierOther, 4)].slice(
-        0,
-        25
-      );
-      return NextResponse.json({ tracks });
+      return NextResponse.json({ tracks: combined.slice(0, 25) });
     }
 
     const [upNextRes, artistSongsRes] = await Promise.allSettled([
@@ -128,31 +132,47 @@ export async function GET(req: NextRequest) {
       primaryArtist ? yt.searchSongs(primaryArtist) : Promise.resolve([]),
     ]);
 
-    const rawArtistSongs =
-      artistSongsRes.status === 'fulfilled' ? artistSongsRes.value.map(normalizeSong) : [];
     const rawUpNexts =
-      upNextRes.status === 'fulfilled' ? upNextRes.value.map(normalizeSong) : [];
+      upNextRes.status === 'fulfilled'
+        ? upNextRes.value.map(normalizeSong)
+        : [];
+    const rawArtistSongs =
+      artistSongsRes.status === 'fulfilled'
+        ? artistSongsRes.value.map(normalizeSong)
+        : [];
 
-    const sameArtistPool = lightShuffle(dedupe(rawArtistSongs), 4);
-    const relatedPool = dedupe(rawUpNexts);
+    const upNextPool = dedupeAndFilter(rawUpNexts);
+    const sameArtistPool = primaryArtist
+      ? dedupeAndFilter(
+          rawArtistSongs.filter((t) =>
+            (t.artist || '')
+              .toLowerCase()
+              .includes(primaryArtist.toLowerCase())
+          )
+        )
+      : [];
 
     const tracks: CandidateTrack[] = [];
-    let i = 0;
-    let j = 0;
-    while (tracks.length < 25 && (i < sameArtistPool.length || j < relatedPool.length)) {
-      for (let c = 0; c < 2 && i < sameArtistPool.length && tracks.length < 25; c++) {
-        tracks.push(sameArtistPool[i++]);
+    let u = 0;
+    let s = 0;
+    while (
+      tracks.length < 25 &&
+      (u < upNextPool.length || s < sameArtistPool.length)
+    ) {
+      if (u < upNextPool.length && tracks.length < 25) {
+        tracks.push(upNextPool[u++]);
       }
-      if (j < relatedPool.length && tracks.length < 25) {
-        tracks.push(relatedPool[j++]);
+      if (s < sameArtistPool.length && tracks.length < 25) {
+        tracks.push(sameArtistPool[s++]);
       }
     }
 
     return NextResponse.json({ tracks });
   } catch (error) {
     console.error('UpNext API error:', error);
-    return NextResponse.json({
-      tracks: SEED_TRACKS.filter((t) => t.videoId !== videoId),
-    });
+    return NextResponse.json(
+      { error: 'Failed to fetch up-next tracks', tracks: [] },
+      { status: 500 }
+    );
   }
 }
