@@ -1,12 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AuthGate } from '@/components/AuthGate';
 import { AuthProvider } from '@/components/AuthProvider';
 import { ChartsView } from '@/components/ChartsView';
 import { DetailView } from '@/components/DetailView';
 import { DynamicIsland } from '@/components/DynamicIsland';
-import { DynamicIslandPopup } from '@/components/DynamicIslandPopup';
 import { HomeView } from '@/components/HomeView';
 import { LibraryView } from '@/components/LibraryView';
 import { LiquidGlassFilterDefs } from '@/components/LiquidGlassSurface';
@@ -29,8 +28,10 @@ function SonoraShell() {
     isNowPlayingOpen,
     currentTrack,
     settings,
-  } = useMusic();
-
+    setActiveTab, openDetail, setIsNowPlayingOpen, pause } = useMusic();
+  useEffect(() => { (window as unknown as { __nuetifyHandleBack?: () => boolean }).__nuetifyHandleBack = () => { if (isNowPlayingOpen) { setIsNowPlayingOpen(false); return true; } if (detailTarget) { openDetail(null); return true; } if (activeTab !== 'home') { setActiveTab('home'); return true; } return false; }; return () => { delete (window as unknown as { __nuetifyHandleBack?: () => boolean }).__nuetifyHandleBack; }; }, [isNowPlayingOpen, setIsNowPlayingOpen, detailTarget, openDetail, activeTab, setActiveTab]);
+  useEffect(() => { const handleForceStop = () => { pause(); setIsNowPlayingOpen(false); }; window.addEventListener('nuetify-force-stop', handleForceStop); return () => { window.removeEventListener('nuetify-force-stop', handleForceStop); }; }, [pause, setIsNowPlayingOpen]);
+  
   return (
     <div className="min-h-screen w-full max-w-full overflow-x-clip flex flex-col lg:flex-row relative bg-[var(--m3-bg)] transition-colors duration-200">
       {settings.dockStyle === 'liquid-glass' && <LiquidGlassFilterDefs />}
@@ -48,7 +49,6 @@ function SonoraShell() {
 
       {/* iPhone 17 / 18 Dynamic Island & Background Popup Engine */}
       <DynamicIsland />
-      <DynamicIslandPopup />
 
       <Sidebar />
 
