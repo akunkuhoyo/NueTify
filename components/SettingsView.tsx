@@ -449,60 +449,6 @@ export function SettingsView() {
             Appearance
           </h2>
           <div className="rounded-[24px] metro-surface overflow-hidden divide-y divide-black/[0.06] dark:divide-white/[0.06]">
-            {/* Navigation Bar Style (Default vs Liquid Glass) */}
-            <div className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3.5 min-w-0">
-                <span
-                  className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                  style={{
-                    backgroundColor:
-                      'color-mix(in srgb, var(--m3-primary) 14%, transparent)',
-                    color: 'var(--m3-primary)',
-                  }}
-                >
-                  <Layers className="w-[18px] h-[18px]" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[14.5px] font-semibold">Navigation Bar Style</p>
-                  <p className="text-[12.5px] opacity-60">
-                    Liquid Glass (floating &amp; slide) or Default (lightweight for older Android)
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-full bg-black/[0.05] dark:bg-white/[0.06] sm:w-56 shrink-0">
-                <button
-                  type="button"
-                  data-testid="dock-style-default"
-                  onClick={() => {
-                    updateSettings({ dockStyle: 'default' });
-                    showToast('Navigation bar: Default (lightweight)');
-                  }}
-                  className={`h-8 rounded-full text-[12.5px] font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                    settings.dockStyle !== 'liquid-glass'
-                      ? 'bg-[var(--m3-primary)] text-[var(--m3-on-primary)] shadow-sm'
-                      : 'opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  Default
-                </button>
-                <button
-                  type="button"
-                  data-testid="dock-style-liquid-glass"
-                  onClick={() => {
-                    updateSettings({ dockStyle: 'liquid-glass' });
-                    showToast('Navigation bar: Liquid Glass (iOS 27)');
-                  }}
-                  className={`h-8 rounded-full text-[12.5px] font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                    settings.dockStyle === 'liquid-glass'
-                      ? 'bg-[var(--m3-primary)] text-[var(--m3-on-primary)] shadow-sm'
-                      : 'opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" /> Liquid Glass
-                </button>
-              </div>
-            </div>
-
             {/* Pure Black AMOLED */}
             <PreferenceRow
               icon={Moon}
