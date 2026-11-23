@@ -449,56 +449,6 @@ export function SettingsView() {
             Appearance
           </h2>
           <div className="rounded-[24px] metro-surface overflow-hidden divide-y divide-black/[0.06] dark:divide-white/[0.06]">
-            {/* Theme Mode */}
-            <div className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3.5 min-w-0">
-                <span
-                  className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                  style={{
-                    backgroundColor:
-                      'color-mix(in srgb, var(--m3-primary) 14%, transparent)',
-                    color: 'var(--m3-primary)',
-                  }}
-                >
-                  {settings.theme === 'dark' ? (
-                    <Moon className="w-[18px] h-[18px]" />
-                  ) : (
-                    <Sun className="w-[18px] h-[18px]" />
-                  )}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[14.5px] font-semibold">Theme Mode</p>
-                  <p className="text-[12.5px] opacity-60">
-                    NueTify Dark Material surface styling
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-1.5 p-1 rounded-full bg-black/[0.05] dark:bg-white/[0.06] sm:w-48 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => updateSettings({ theme: 'dark' })}
-                  className={`h-8 rounded-full text-[12.5px] font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                    settings.theme === 'dark'
-                      ? 'bg-[var(--m3-primary)] text-[var(--m3-on-primary)] shadow-sm'
-                      : 'opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <Moon className="w-3.5 h-3.5" /> Dark
-                </button>
-                <button
-                  type="button"
-                  onClick={() => updateSettings({ theme: 'light' })}
-                  className={`h-8 rounded-full text-[12.5px] font-semibold flex items-center justify-center gap-1.5 transition-all ${
-                    settings.theme === 'light'
-                      ? 'bg-[var(--m3-primary)] text-[var(--m3-on-primary)] shadow-sm'
-                      : 'opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <Sun className="w-3.5 h-3.5" /> Light
-                </button>
-              </div>
-            </div>
-
             {/* Navigation Bar Style (Default vs Liquid Glass) */}
             <div className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3.5 min-w-0">
@@ -566,7 +516,6 @@ export function SettingsView() {
                 <M3Switch
                   label="Pure Black AMOLED"
                   checked={settings.pureBlack}
-                  disabled={settings.theme !== 'dark'}
                   onChange={() =>
                     updateSettings({ pureBlack: !settings.pureBlack })
                   }
