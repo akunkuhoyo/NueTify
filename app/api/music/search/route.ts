@@ -205,7 +205,7 @@ export async function GET(req: NextRequest) {
           ? allRes.value.map(normalizeSearchItem).filter(Boolean)
           : [];
       const allTracks = allItems.filter(
-        (item): item is TrackCandidate => Boolean(item && item.kind === 'TRACK')
+        (item): item is Extract<typeof item, { kind: 'TRACK' }> => item !== null && item.kind === 'TRACK'
       );
       const nonTracks =
         type === 'all'
