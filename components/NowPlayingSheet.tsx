@@ -34,6 +34,7 @@ import { AodPlayerOverlay } from './AodPlayerOverlay';
 import { ArtworkImage } from './ArtworkImage';
 import { EqualizerSheet, SleepTimerSheet } from './AudioToolsModals';
 import { LyricsShareModal } from './LyricsShareModal';
+import { MarqueeText } from './MarqueeText';
 import { useMusic } from './MusicProvider';
 import { PlayerBackground } from './PlayerBackground';
 import { PlayerSlider } from './PlayerSlider';
@@ -276,10 +277,10 @@ export function NowPlayingSheet() {
                   <div className="flex items-start justify-between gap-2.5 min-w-0">
                     <div className="min-w-0 flex-1">
                       <h2 className="text-xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white truncate">
-                        {currentTrack.title}
+                        <MarqueeText text={currentTrack.title} />
                       </h2>
                       <p className="text-base text-slate-600 dark:text-slate-300 mt-1 truncate">
-                        {currentTrack.artist}
+                        <MarqueeText text={currentTrack.artist} />
                         {currentTrack.album?.name && (
                           <>
                             <span aria-hidden="true"> · </span>
@@ -635,10 +636,10 @@ export function NowPlayingSheet() {
                 <div className="mb-2 flex items-center justify-between gap-3 shrink-0">
                   <div className="min-w-0 flex-1">
                     <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate">
-                      {currentTrack.title}
+                      <MarqueeText text={currentTrack.title} />
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 truncate">
-                      {currentTrack.artist}
+                      <MarqueeText text={currentTrack.artist} />
                       {lyrics?.source && lyrics.source !== 'none' && (
                         <>
                           <span aria-hidden="true"> · </span>
