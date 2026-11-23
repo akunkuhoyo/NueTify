@@ -161,7 +161,10 @@ const SECTIONS: LegalSection[] = [
       {
         label: 'Komunikasi Layanan & Pemeliharaan',
         text: 'Mengirimkan email verifikasi pendaftaran, pemberitahuan pemulihan kata sandi, notifikasi status pemeliharaan sistem (Maintenance Mode), atau tanggapan atas permohonan bantuan dan banding akun.'
-        {
+      }
+      ]
+    },
+  {
     id: 'pasal-6',
     number: 'Pasal 6',
     title: 'Privasi Leaderboard Publik & Perlindungan Alamat Email',
