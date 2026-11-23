@@ -437,7 +437,7 @@ export function SettingsView() {
           </div>
         )}
       </div>
-      <AccountSettingsCard />
+      {activeCategory === 'all' && !normalizedFilter && <AccountSettingsCard />}
 
       {/* 1. APPEARANCE */}
       {showSection(
@@ -2030,15 +2030,46 @@ export function SettingsView() {
           <h2 className="px-1 text-[12px] font-bold uppercase tracking-wider text-[var(--m3-primary)]">
             About
           </h2>
-          <div className="rounded-[24px] metro-surface p-4 flex items-center gap-3.5">
-           <img src="/icon" alt="NueTify" className="w-11 h-11 rounded-2xl object-cover shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-bold">NueTify</p>
-              <p className="text-[12.5px] opacity-65 mt-0.5 leading-relaxed">
-                Platform streaming musik 24 jam — Dikembangkan oleh Tim PT Nueva Group.
+     <div className="rounded-[24px] metro-surface p-5 space-y-4">
+              <div className="flex items-center gap-3.5">
+                <img
+                  src="/icon"
+                  alt="NueTify"
+                  className="w-14 h-14 rounded-2xl object-cover border border-white/15 shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[16px] font-extrabold tracking-tight">
+                    NueTify — Music Platform
+                  </p>
+                  <p className="text-[12px] opacity-65 mt-0.5">
+                    Streaming Musik 24 Jam &amp; Sinkronisasi Real-Time
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-[13px] opacity-80 leading-relaxed">
+                Platform streaming musik 24 jam dengan sinkronisasi real-time lintas perangkat, Equalizer 5-band hingga +25 dB, Lirik tersinkronisasi otomatis, serta Leaderboard Top 50 untuk memantau tren musik terbaik setiap saat.
               </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                <div className="rounded-2xl bg-white/5 border border-white/10 px-3.5 py-2.5">
+                  <p className="text-[11px] uppercase tracking-wider opacity-55 font-semibold">Pengembang</p>
+                  <p className="text-[13px] font-semibold mt-0.5">Tim PT Nueva Group</p>
+                </div>
+                <div className="rounded-2xl bg-white/5 border border-white/10 px-3.5 py-2.5">
+                  <p className="text-[11px] uppercase tracking-wider opacity-55 font-semibold">Platform</p>
+                  <p className="text-[13px] font-semibold mt-0.5">Web / PWA / Android Native</p>
+                </div>
+                <div className="rounded-2xl bg-white/5 border border-white/10 px-3.5 py-2.5">
+                  <p className="text-[11px] uppercase tracking-wider opacity-55 font-semibold">Sinkronisasi</p>
+                  <p className="text-[13px] font-semibold mt-0.5">Cloud Real-Time &amp; RLS</p>
+                </div>
+                <div className="rounded-2xl bg-white/5 border border-white/10 px-3.5 py-2.5">
+                  <p className="text-[11px] uppercase tracking-wider opacity-55 font-semibold">Hak Cipta</p>
+                  <p className="text-[13px] font-semibold mt-0.5">© 2026 PT Nueva Group</p>
+                </div>
+              </div>
             </div>
-          </div>
         </section>
       )}
     </div>
