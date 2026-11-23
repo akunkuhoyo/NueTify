@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Lock, Mail, User as UserIcon, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Lock, Mail, User as UserIcon, ArrowRight } from 'lucide-react';
+import Link from 'next/link';
 import { useAuth } from './AuthProvider';
 import { LoadingSquares } from './LoadingSquares';
 type AuthMode = 'login' | 'register' | 'forgot';
@@ -185,15 +186,7 @@ return <LoadingSquares />; }
     <div className="min-h-screen w-full bg-[#121212] text-[#E5E5E5] flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 p-6 sm:p-7 shadow-2xl">
         <div className="flex flex-col items-center text-center mb-6">
-          <img
-            src="/icon"
-            alt="NueTify"
-            className="w-16 h-16 rounded-2xl object-cover border border-[#C0C0C0]/25 mb-3"
-          />
-          <h1 className="text-2xl font-bold tracking-tight text-white">NueTify</h1>
-          <p className="text-xs text-[#A7A7A7] mt-1">
-            Dikembangkan oleh Tim PT Nueva Group
-          </p>
+                  <img src="https://i.ibb.co.com/zVTpRV9L/Proyek-Baru-598-652-F167.png" alt="NueTify" className="h-12 w-auto max-w-[220px] object-contain mx-auto" />
         </div>
 
         <div className="grid grid-cols-2 gap-1.5 rounded-2xl bg-[#121212] p-1 border border-[#C0C0C0]/10 mb-5">
@@ -399,12 +392,17 @@ return <LoadingSquares />; }
           </button>
         </div>
 
-        <div className="mt-4 rounded-2xl bg-[#121212] border border-[#C0C0C0]/10 p-3 flex items-start gap-2.5">
-          <ShieldCheck className="w-4 h-4 text-[#C0C0C0] shrink-0 mt-0.5" />
-          <p className="text-[11px] leading-relaxed text-[#A7A7A7]">
-            Login dengan Email atau Google menyimpan playlist, lagu favorit, dan pengaturan equalizer secara <span className="text-white font-medium">real-time di cloud</span>. Mode Tamu hanya memakai penyimpanan lokal sementara yang dapat terhapus oleh cache.
+                  <p className="text-[11.5px] leading-relaxed text-center text-[#8E8E93] pt-2">
+            Dengan masuk atau menggunakan layanan ini, Anda menyetujui{' '}
+            <Link href="/terms" className="text-[#E5E5E5] underline underline-offset-2 hover:text-white">
+              Syarat &amp; Ketentuan
+            </Link>{' '}
+            serta{' '}
+            <Link href="/privacy" className="text-[#E5E5E5] underline underline-offset-2 hover:text-white">
+              Kebijakan Privasi
+            </Link>{' '}
+            NueTify.
           </p>
-        </div>
       </div>
     </div>
   );
