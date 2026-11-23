@@ -140,7 +140,8 @@ void checkUserBan(authUser.id);
         setProfile(resolved);
         resolvedDisplayName = resolved.display_name;
         resolvedAvatarUrl = resolved.avatar_url;
-      } else {if (profRow.display_name !== resolved.display_name || (!profRow.avatar_url && resolved.avatar_url)) { await supabase.from('user_profiles').upsert({ id: authUser.id, display_name: resolved.display_name, avatar_url: resolved.avatar_url, updated_at: new Date().toISOString() }, { onConflict: 'id' }); }
+if (profRow.display_name !== resolved.display_name || (!profRow.avatar_url && resolved.avatar_url)) { await supabase.from('user_profiles').upsert({ id: authUser.id, display_name: resolved.display_name, avatar_url: resolved.avatar_url, updated_at: new Date().toISOString() }, { onConflict: 'id' }); }
+      } else {
         await supabase.from('user_profiles').upsert(
           {
             id: authUser.id,
