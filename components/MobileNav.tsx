@@ -11,7 +11,7 @@ import {
   Loader2,
   Music2,
   Pause,
-  PictureInPicture2,
+  SkipBack,
   Play,
   Search,
   Settings,
@@ -125,7 +125,7 @@ export function MobileBottomTabs() {
     nextTrack,
     setIsNowPlayingOpen,
     popupMode,
-    toggleBackgroundPopup,
+    prevTrack,
     history,
     likedTracks,
     playTrack,
@@ -382,6 +382,13 @@ export function MobileBottomTabs() {
               <div className="flex items-center gap-0.5 shrink-0">
                 <button
                   type="button"
+                  onClick={() => prevTrack()}
+                  aria-label="Previous track"
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-black/5 dark:hover:bg-white/10 active:scale-90 transition-all"
+                >
+                  <SkipBack className="w-[17px] h-[17px] fill-current" />
+                </button> <button
+                  type="button"
                   onClick={handlePlayIdleOrToggle}
                   aria-label={isPlaying ? 'Pause' : 'Play'}
                   className="w-10 h-10 rounded-full flex items-center justify-center text-slate-900 dark:text-white hover:bg-black/5 dark:hover:bg-white/10 active:scale-90 transition-all"
@@ -402,23 +409,7 @@ export function MobileBottomTabs() {
                 >
                   <SkipForward className="w-[17px] h-[17px] fill-current" />
                 </button>
-                <button
-                  type="button"
-                  onClick={toggleBackgroundPopup}
-                  aria-label={
-                    popupMode === 'off'
-                      ? 'Pop out Dynamic Island'
-                      : 'Close Dynamic Island popup'
-                  }
-                  className={cn(
-                    'w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-all',
-                    popupMode !== 'off'
-                      ? 'text-[var(--m3-primary)] bg-[var(--m3-primary-soft)]'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-black/5 dark:hover:bg-white/10'
-                  )}
-                >
-                  <PictureInPicture2 className="w-4 h-4" />
-                </button>
+               
               </div>
             </div>
           </div>
@@ -679,7 +670,15 @@ export function MobileBottomTabs() {
                 </button>
 
                 <div className="relative z-10 flex items-center gap-0.5 shrink-0">
-                  <button
+                   <button
+                    type="button"
+                    onClick={() => prevTrack()}
+                    disabled={!currentTrack}
+                    aria-label="Previous track"
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-slate-800 dark:text-white/90 hover:bg-white/15 active:scale-90 disabled:opacity-35 transition-all"
+                  >
+                    <SkipBack className="w-[18px] h-[18px] fill-current" />
+                  </button> <button
                     type="button"
                     onClick={handlePlayIdleOrToggle}
                     aria-label={isPlaying ? 'Pause' : 'Play'}
@@ -704,25 +703,8 @@ export function MobileBottomTabs() {
                     <SkipForward className="w-[18px] h-[18px] fill-current" />
                   </button>
 
-                  {currentTrack && (
-                    <button
-                      type="button"
-                      onClick={toggleBackgroundPopup}
-                      aria-label={
-                        popupMode === 'off'
-                          ? 'Pop out Dynamic Island'
-                          : 'Close Dynamic Island popup'
-                      }
-                      className={cn(
-                        'w-9 h-9 rounded-full flex items-center justify-center active:scale-90 transition-all',
-                        popupMode !== 'off'
-                          ? 'text-[var(--m3-primary)] bg-white/20'
-                          : 'text-slate-700 dark:text-white/80 hover:bg-white/15'
-                      )}
-                    >
-                      <PictureInPicture2 className="w-4 h-4" />
-                    </button>
-                  )}
+             
+                 
                 </div>
               </div>
 
