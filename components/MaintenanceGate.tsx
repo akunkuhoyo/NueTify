@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Wrench, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { isVerifiedDeveloper } from './VerifiedBadge';
-
+import { getSupabaseClient } from '@/lib/cloud/supabaseClient';
 export function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [maintenance, setMaintenance] = useState(false);
@@ -12,7 +12,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
     'NueTify sedang dalam tahap pembaruan sistem dan peningkatan fitur. Silakan kembali beberapa saat lagi.'
   );
   const [bypassed, setBypassed] = useState(false);
-
+  const prevMaintenanceRef = React.useRef(false);
   useEffect(() => {
     let cancelled = false;
     const check = () => {
@@ -32,7 +32,8 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
       window.clearInterval(id);
     };
   }, []);
-
+    useEffect(() => { if (prevMaintenanceRef.current && !maintenance) { window.dispatchEvent(new CustomEvent('nuetify-check-update')); } prevMaintenanceRef.current = maintenance; }, [maintenance]);
+    useEffect(() => { const supabase = getSupabaseClient(); if (!supabase) return; const channel = supabase.channel('app_config_maintenance_realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'app_config', filter: 'key=eq.maintenance' }, (payload) => { const newRow = payload.new as { value?: { enabled?: boolean; message?: string } | null } | null; const val = newRow?.value; if (!val) return; setMaintenance(Boolean(val.enabled)); if (val.message) setMessage(val.message); }).subscribe(); return () => { void supabase.removeChannel(channel); }; }, []);
   const isDev = isVerifiedDeveloper({ userId: user?.id, email: user?.email });
 
   if (!maintenance || bypassed) {
