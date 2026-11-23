@@ -15,7 +15,6 @@ import {
   MessageSquareQuote,
   MoonStar,
   Pause,
-  PictureInPicture2,
   Play,
   Radio,
   Repeat,
@@ -79,8 +78,7 @@ export function NowPlayingSheet() {
     sleepTimerEndOfTrack,
     settings,
     updateSettings,
-    popupMode,
-    toggleBackgroundPopup,
+    
   } = useMusic();
 
   const [aodOpen, setAodOpen] = useState(false);
@@ -192,23 +190,6 @@ export function NowPlayingSheet() {
                   <MoonStar className="w-4 h-4" />
                 </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    toggleBackgroundPopup();
-                    setIsNowPlayingOpen(false);
-                  }}
-                  aria-label="Pop out Dynamic Island"
-                  title="Pop out Dynamic Island for background play"
-                  className={cn(
-                    'w-10 h-10 sm:w-11 sm:h-11 shrink-0 flex items-center justify-center rounded-full transition-colors',
-                    popupMode !== 'off'
-                      ? 'bg-[var(--m3-primary)] text-[var(--m3-on-primary)]'
-                      : 'liquid-glass text-slate-700 dark:text-slate-200'
-                  )}
-                >
-                  <PictureInPicture2 className="w-4 h-4" />
-                </button>
 
               </div>
             </div>
