@@ -741,7 +741,21 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
   // Page Visibility & Window Blur Guard: keep playback alive across tab/app transitions + optional auto pop-out
   useEffect(() => {
     if (typeof document === 'undefined') return;
-
+    let resumeCheckTimer: number | null = null;
+    const safeCheckAndResume = () => {
+      if (!intendedPlayingRef.current || userPausedRef.current) return;
+if (resumeCheckTimer !== null) { window.clearTimeout(resumeCheckTimer); resumeCheckTimer = null; }
+const t1 = ytPlayerRef.current?.getCurrentTime?.() || 0;
+resumeCheckTimer = window.setTimeout(() => {
+  resumeCheckTimer = null;
+      const ytState = ytPlayerRef.current?.getPlayerState?.();
+      const t2 = ytPlayerRef.current?.getCurrentTime?.() || 0;
+      if (ytState === 1 || ytState === 3 || t2 > t1 + 0.08) return;
+      if (intendedPlayingRef.current && !userPausedRef.current && (ytState === 2 || ytState === -1 || ytState === 5)) {
+        resumePlaybackKeepAlive();
+      }
+    }, 450);
+  };
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') { flushLibrarySync();
         if (
@@ -749,7 +763,7 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
           intendedPlayingRef.current &&
           !userPausedRef.current
         ) {
-          resumePlaybackKeepAlive();
+          safeCheckAndResume();
           if (settingsRef.current.autoPopoutIsland && popupModeRef.current === 'off') {
             popupHandlersRef.current.open();
           }
@@ -757,9 +771,7 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
       } else {
         bgRecoveryCountRef.current = 0;
         lastTickMsRef.current = Date.now();
-        const ytState = ytPlayerRef.current?.getPlayerState?.(); if (intendedPlayingRef.current && !userPausedRef.current && ytState !== 1 && ytState !== 3 && (ytState === 2 || ytState === -1)) {
-          resumePlaybackKeepAlive();
-        }
+        safeCheckAndResume();
         if (ytReadyRef.current && ytPlayerRef.current) {
           try {
             const ytTime = ytPlayerRef.current.getCurrentTime();
@@ -779,15 +791,16 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
         intendedPlayingRef.current &&
         !userPausedRef.current
       ) {
-        resumePlaybackKeepAlive();
+        safeCheckAndResume();
       }
     };
-    const handlePageShow = () => { const ytState = ytPlayerRef.current?.getPlayerState?.(); if (intendedPlayingRef.current && !userPausedRef.current && ytState !== 1 && ytState !== 3 && (ytState === 2 || ytState === -1)) { resumePlaybackKeepAlive(); } };
+    const handlePageShow = () => { safeCheckAndResume(); };
     
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleWindowBlur);
     window.addEventListener('pageshow', handlePageShow); window.addEventListener('pagehide', flushLibrarySync);
     return () => {
+      if (resumeCheckTimer !== null) { window.clearTimeout(resumeCheckTimer); resumeCheckTimer = null; }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('pageshow', handlePageShow); window.removeEventListener('pagehide', flushLibrarySync);
