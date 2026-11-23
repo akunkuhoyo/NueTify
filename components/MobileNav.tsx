@@ -63,19 +63,7 @@ export function MobileTopBar() {
         }}
         className="flex items-center gap-3 text-left shrink-0 active:scale-[0.98] transition-transform"
       >
-        <img
-          src="/icon"
-          alt="NueTify"
-          className="w-9 h-9 rounded-xl object-cover shrink-0 ring-1 ring-[#C0C0C0]/30"
-        />
-        <div className="flex flex-col leading-none">
-          <span className="text-[19px] font-extrabold tracking-tight text-white">
-            NueTify
-          </span>
-          <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[#A7A7A7] mt-0.5">
-            Music Platform
-          </span>
-        </div>
+       <img src="https://i.ibb.co.com/SD5pT6sM/Proyek-Baru-598-2-DB8-FD2.png" alt="NueTify" className="h-8 w-auto max-w-[160px] object-contain" />
       </button>
 
       <div className="flex items-center gap-2 shrink-0">
