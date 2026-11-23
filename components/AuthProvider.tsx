@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [cloudRevision, setCloudRevision] = useState(0);
 
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastPushedJsonRef = useRef<string>('');
+  const lastPushedJsonRef = useRef<string>(''); const loadedUserIdRef = useRef<string | null>(null);
 const checkUserBan = useCallback(async (authUserId: string) => { const supabase = getSupabaseClient(); if (!supabase) return; try { const { data } = await supabase.from('user_bans').select('reason, banned_until, is_active').eq('user_id', authUserId).maybeSingle(); if (data && data.is_active && (!data.banned_until || new Date(data.banned_until).getTime() > Date.now())) { setBanInfo({ reason: data.reason || '', banned_until: data.banned_until ?? null }); window.dispatchEvent(new CustomEvent('nuetify-force-stop')); } else { setBanInfo(null); } } catch {} }, []);
   
   const loadUserCloudState = useCallback(async (authUser: User) => {
@@ -112,7 +112,7 @@ const checkUserBan = useCallback(async (authUserId: string) => { const supabase 
       setProfile(fallback);
       return;
     }
-void checkUserBan(authUser.id);
+loadedUserIdRef.current = authUser.id; void checkUserBan(authUser.id);
     
     setSyncStatus('syncing');
     try {
@@ -285,9 +285,9 @@ if (profRow.display_name !== resolved.display_name || (!profRow.avatar_url && re
         } catch {
           // ignore
         }
-        void loadUserCloudState(nextUser);
+        if (!((event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') && loadedUserIdRef.current === nextUser.id)) { void loadUserCloudState(nextUser); }
       } else {
-        setProfile(null);
+        loadedUserIdRef.current = null; setProfile(null);
         setCloudMusicData(null);
       }
       setLoading(false);
@@ -547,7 +547,7 @@ if (profRow.display_name !== resolved.display_name || (!profRow.avatar_url && re
       if (error) {
         return { ok: false, message: error.message };
       }
-      setProfile((prev) =>
+      void supabase.auth.updateUser({ data: { custom_avatar_url: nextAvatar } }); setProfile((prev) =>
         prev
           ? { ...prev, display_name: nextName, avatar_url: nextAvatar }
           : {
@@ -617,17 +617,9 @@ if (profRow.display_name !== resolved.display_name || (!profRow.avatar_url && re
             acc + Number(ev?.durationListenedSec ?? ev?.track?.duration ?? 180),
           0
         );
-        await supabase.from('listening_leaderboard').upsert(
-          {
-            user_id: user.id,
-            display_name: resolveSafeDisplayName(user, profile?.display_name),
-            avatar_url: profile?.avatar_url || String((user.user_metadata as Record<string, unknown> | undefined)?.avatar_url || (user.user_metadata as Record<string, unknown> | undefined)?.picture || ''),
-            total_seconds: Math.max(0, Math.floor(totalSeconds)),
-            total_plays: totalPlays,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id' }
-        );
+        const { data: sessData } = await supabase.auth.getSession();
+          const token = sessData.session?.access_token;
+          if (token) { await fetch('/api/leaderboard', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ totalSeconds: Math.max(0, Math.floor(totalSeconds)), totalPlays, displayName: resolveSafeDisplayName(user, profile?.display_name), avatarUrl: profile?.avatar_url || String((user.user_metadata as Record<string, unknown> | undefined)?.custom_avatar_url || '') }) }).catch(() => {}); }
           void mirrorToFirebaseFirestore(user.id, 'music_data', payloadWithTs);
           setSyncStatus('synced');
         } catch {
