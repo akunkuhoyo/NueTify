@@ -179,9 +179,9 @@ export function LibraryView() {
   };
 
   const handleAddTag = (playlistId: string, existingTags: string[] = []) => {
-    const cleaned = tagDraft.trim();
+    if (existingTags.length >= 1) return; const cleaned = tagDraft.trim().slice(0, 15);
     if (!cleaned) return;
-    updatePlaylistTags(playlistId, [...existingTags, cleaned]);
+    updatePlaylistTags(playlistId, [cleaned]);
     setTagDraft('');
     setEditingTagPlaylistId(null);
   };
@@ -564,8 +564,8 @@ export function LibraryView() {
                           <input
                             type="text"
                             value={tagDraft}
-                            onChange={(e) => setTagDraft(e.target.value)}
-                            placeholder="Add tag (e.g. Chill)..."
+                            onChange={(e) => setTagDraft(e.target.value.slice(0, 15))}
+                            maxLength={15} placeholder="Tag (maks 15 karakter)..."
                             aria-label="New playlist tag"
                             className="flex-1 h-8 px-2.5 rounded-xl bg-black/5 dark:bg-white/10 text-xs focus:outline-none"
                             autoFocus
@@ -592,7 +592,7 @@ export function LibraryView() {
                         <>
                           <span className="text-[11.5px] text-slate-500 dark:text-slate-400 truncate">
                             {tags.length > 0 ? tags.map((t) => `#${t}`).join(' ') : 'No tags'}
-                          </span>
+                          </span>{tags.length < 1 && (
                           <button
                             type="button"
                             onClick={() => {
@@ -602,7 +602,7 @@ export function LibraryView() {
                             className="text-[11.5px] font-semibold text-[var(--m3-primary)] hover:underline whitespace-nowrap shrink-0"
                           >
                             + Tag
-                          </button>
+                          </button>)}
                         </>
                       )}
                     </div>
