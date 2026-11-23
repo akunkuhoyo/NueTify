@@ -72,12 +72,11 @@ function extractGoogleAvatar(user: User): string {
   return String(meta.avatar_url || meta.picture || '');
 }
 
+function resolveSafeDisplayName(authUser: User, storedName?: string | null): string { const meta = (authUser.user_metadata || {}) as Record<string, unknown>; const emailPrefix = (authUser.email || '').split('@')[0].trim().toLowerCase(); const metaName = String(meta.display_name || meta.full_name || meta.name || '').trim(); const candidate = (storedName || '').trim(); if (candidate && (candidate.toLowerCase() !== emailPrefix || !metaName)) { return candidate; } if (metaName) return metaName; return 'Pengguna NueTify'; }
 function buildFallbackProfile(user: User): UserProfile {
   const meta = user.user_metadata || {};
   const provider = String(user.app_metadata?.provider || 'email');
-  const displayName = String(
-    meta.display_name || meta.full_name || meta.name || user.email?.split('@')[0] || 'Pengguna NueTify'
-  );
+ const displayName = resolveSafeDisplayName(user);
   const avatarUrl =
     typeof meta.custom_avatar_url === 'string'
       ? meta.custom_avatar_url
@@ -133,7 +132,7 @@ void checkUserBan(authUser.id);
             : googlePic;
         const resolved: UserProfile = {
           id: authUser.id,
-          display_name: profRow.display_name || fallback.display_name,
+          display_name: resolveSafeDisplayName(authUser, profRow.display_name),
           avatar_url: resolvedAvatar,
           email: authUser.email || '',
           provider: fallback.provider,
@@ -141,7 +140,7 @@ void checkUserBan(authUser.id);
         setProfile(resolved);
         resolvedDisplayName = resolved.display_name;
         resolvedAvatarUrl = resolved.avatar_url;
-      } else {
+      } else {if (profRow.display_name !== resolved.display_name || (!profRow.avatar_url && resolved.avatar_url)) { await supabase.from('user_profiles').upsert({ id: authUser.id, display_name: resolved.display_name, avatar_url: resolved.avatar_url, updated_at: new Date().toISOString() }, { onConflict: 'id' }); }
         await supabase.from('user_profiles').upsert(
           {
             id: authUser.id,
@@ -385,13 +384,13 @@ void checkUserBan(authUser.id);
       if (!supabase) {
         return { ok: false, message: 'Konfigurasi server autentikasi belum tersedia.' };
       }
-      const cleanName = (displayName.trim() || email.trim().split('@')[0] || 'Pengguna NueTify').trim().slice(0, 15);
+  const cleanName = (displayName.trim() || 'Pengguna NueTify').slice(0, 15);
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           data: {
-            display_name: cleanName,
+            display_name: cleanName, full_name: cleanName,
           },
         },
       });
@@ -620,11 +619,8 @@ void checkUserBan(authUser.id);
         await supabase.from('listening_leaderboard').upsert(
           {
             user_id: user.id,
-            display_name:
-              profile?.display_name ||
-              user.email?.split('@')[0] ||
-              'Pengguna NueTify',
-            avatar_url: profile?.avatar_url || '',
+            display_name: resolveSafeDisplayName(user, profile?.display_name),
+            avatar_url: profile?.avatar_url || String((user.user_metadata as Record<string, unknown> | undefined)?.avatar_url || (user.user_metadata as Record<string, unknown> | undefined)?.picture || ''),
             total_seconds: Math.max(0, Math.floor(totalSeconds)),
             total_plays: totalPlays,
             updated_at: new Date().toISOString(),
