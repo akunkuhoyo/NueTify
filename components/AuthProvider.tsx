@@ -385,7 +385,7 @@ void checkUserBan(authUser.id);
       if (!supabase) {
         return { ok: false, message: 'Konfigurasi server autentikasi belum tersedia.' };
       }
-      const cleanName = displayName.trim() || email.trim().split('@')[0] || 'Pengguna NueTify';
+      const cleanName = (displayName.trim() || email.trim().split('@')[0] || 'Pengguna NueTify').trim().slice(0, 15);
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
@@ -532,8 +532,8 @@ void checkUserBan(authUser.id);
       }
       const nextName =
         typeof updates.display_name === 'string' && updates.display_name.trim()
-          ? updates.display_name.trim()
-          : profile?.display_name || 'Pengguna NueTify';
+          ? updates.display_name.trim().slice(0, 15)
+          : (profile?.display_name || 'Pengguna NueTify').trim().slice(0, 15);
 
       const { error } = await supabase.from('user_profiles').upsert(
         {
