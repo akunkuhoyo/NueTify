@@ -31,7 +31,7 @@ import {
   Music2,
   Palette,
   PauseCircle,
-  PictureInPicture2,
+
   Plus,
   Radio,
   RotateCcw,
@@ -1337,84 +1337,7 @@ export function SettingsView() {
             Player & Audio
           </h2>
           <div className="rounded-[24px] metro-surface overflow-hidden divide-y divide-black/[0.06] dark:divide-white/[0.06]">
-            {/* Background Audio Keep-Alive */}
-            <PreferenceRow
-              icon={Headphones}
-              title="Background Audio Keep-Alive"
-              description="Preserve Media Session lock-screen controls & resume on tab switch"
-              trailing={
-                <M3Switch
-                  label="Background Audio Keep-Alive"
-                  checked={settings.backgroundPlay}
-                  onChange={() =>
-                    updateSettings({ backgroundPlay: !settings.backgroundPlay })
-                  }
-                />
-              }
-            />
-                {/* Dynamic Island */} <PreferenceRow icon={PictureInPicture2} title="Dynamic Island" description="Tampilkan pil Dynamic Island pemutar lagu di bagian atas layar" trailing={<M3Switch label="Dynamic Island" checked={Boolean(settings.showDynamicIsland)} onChange={() => updateSettings({ showDynamicIsland: !settings.showDynamicIsland })} />} />
-            {/* Auto Pop-Out Dynamic Island */}
-            <PreferenceRow
-              icon={PictureInPicture2}
-              title="Auto Pop-Out Dynamic Island"
-              description="Automatically open floating Dynamic Island PiP when leaving tab"
-              trailing={
-                <M3Switch
-                  label="Auto Pop-Out Dynamic Island"
-                  checked={settings.autoPopoutIsland}
-                  onChange={() =>
-                    updateSettings({
-                      autoPopoutIsland: !settings.autoPopoutIsland,
-                    })
-                  }
-                />
-              }
-            />
-
-            {/* Live Launch Dynamic Island Action */}
-            <div className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3.5 min-w-0">
-                <span
-                  className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-                  style={{
-                    backgroundColor:
-                      'color-mix(in srgb, var(--m3-primary) 14%, transparent)',
-                    color: 'var(--m3-primary)',
-                  }}
-                >
-                  <PictureInPicture2 className="w-[18px] h-[18px]" />
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[14.5px] font-semibold">
-                    Floating Dynamic Island Pro
-                  </p>
-                  <p className="text-[12.5px] opacity-60 truncate">
-                    {popupMode !== 'off'
-                      ? `Active (${popupMode})`
-                      : currentTrack
-                        ? `Ready for "${currentTrack.title}"`
-                        : 'Play any track to pop out floating controls'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  popupMode !== 'off'
-                    ? closeBackgroundPopup()
-                    : openBackgroundPopup()
-                }
-                className={`px-4 h-9 rounded-full text-[12.5px] font-semibold inline-flex items-center justify-center gap-1.5 shrink-0 transition-all ${
-                  popupMode !== 'off'
-                    ? 'bg-rose-500/15 text-rose-500 hover:bg-rose-500/25'
-                    : 'bg-[var(--m3-primary)] text-[var(--m3-on-primary)]'
-                }`}
-              >
-                <PictureInPicture2 className="w-3.5 h-3.5" />
-                {popupMode !== 'off' ? 'Dock Island' : 'Pop Out Island'}
-              </button>
-            </div>
-
+     
             {/* Playback Speed */}
             <div className="px-4 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3.5 min-w-0">
