@@ -8,6 +8,15 @@ const REPO = 'NueTify';
 const FALLBACK_URL = ['https:', '', 'github.com', OWNER, REPO, 'releases', 'latest', 'download', 'NueTify.apk'].join('/');
 
 export async function GET() {
+  if (process.env.MAINTENANCE_MODE === 'true') {
+    return NextResponse.json({
+      maintenance: true,
+      version: '',
+      downloadUrl: '',
+      fileSizeMb: null,
+      publishedAt: null,
+    });
+  }
   try {
     const apiUrl = ['https:', '', 'api.github.com', 'repos', OWNER, REPO, 'releases', 'latest'].join('/');
     const res = await fetch(apiUrl, {
