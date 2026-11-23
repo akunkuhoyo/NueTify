@@ -141,12 +141,13 @@ export function AccountSettingsCard() {
         <form onSubmit={handleSaveProfile} className="space-y-3 pt-2 border-t border-[#C0C0C0]/10">
           <div>
             <label className="block text-xs font-medium text-[#C0C0C0] mb-1">
-              Nama Tampilan
+              Nama Tampilan ({displayName.length}/15)
             </label>
             <input
               type="text"
+              maxLength={15}
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={(e) => setDisplayName(e.target.value.slice(0, 15))}
               placeholder="Nama tampilan Anda"
               className="w-full rounded-xl bg-[#242424] border border-[#C0C0C0]/20 px-3 py-2 text-sm text-white placeholder-[#7A7A7A] focus:outline-none focus:border-[#C0C0C0]"
             />
