@@ -97,12 +97,14 @@ export function AppDownloadModal() {
     };
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('nuetify-check-update', checkRelease);
 
     return () => {
       cancelled = true;
       window.clearInterval(intervalId);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('nuetify-check-update', checkRelease);
     };
   }, []);
 
@@ -183,7 +185,14 @@ export function AppDownloadModal() {
           <a
             href={release.downloadUrl}
             download="NueTify.apk"
-            onClick={handleDismiss}
+            onClick={(e) => {
+              const native = (window as unknown as { NueTifyNative?: { downloadAndInstallApk?: (u: string, v: string) => void } }).NueTifyNative;
+              if (isNative && native?.downloadAndInstallApk) {
+                e.preventDefault();
+                native.downloadAndInstallApk(release.downloadUrl, release.version);
+              }
+              handleDismiss();
+            }}
             className="flex w-full items-center justify-center gap-2 rounded-full bg-[#C0C0C0] px-4 py-3 text-sm font-bold text-black hover:bg-[#D4D4D8] transition-colors"
           >
             <Download className="h-4 w-4" />
