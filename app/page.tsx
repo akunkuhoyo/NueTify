@@ -11,6 +11,7 @@ import { HomeView } from '@/components/HomeView';
 import { LibraryView } from '@/components/LibraryView';
 import { LiquidGlassFilterDefs } from '@/components/LiquidGlassSurface';
 import { MiniPlayer } from '@/components/MiniPlayer';
+import { MaintenanceGate } from '@/components/MaintenanceGate';
 import { MobileBottomTabs, MobileTopBar } from '@/components/MobileNav';
 import { MusicProvider, useMusic } from '@/components/MusicProvider';
 import { NowPlayingSheet } from '@/components/NowPlayingSheet';
@@ -86,11 +87,13 @@ function SonoraShell() {
 export default function Page() {
   return (
 <AuthProvider>
+      <MaintenanceGate>
 <AuthGate>
     <MusicProvider>
       <SonoraShell />
     </MusicProvider>
       </AuthGate>
+      </MaintenanceGate>
     </AuthProvider>
   );
 }
