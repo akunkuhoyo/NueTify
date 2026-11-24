@@ -36,6 +36,26 @@ export function LeaderboardSection() {
   const [loading, setLoading] = useState(true);
   const [showFull, setShowFull] = useState(false);
 
+useEffect(() => {
+if (!showFull) return;
+const w = window as unknown as { __nuetifyCloseLeaderboard?: () => boolean };
+w.__nuetifyCloseLeaderboard = () => {
+setShowFull(false);
+return true;
+};
+try {
+window.history.pushState({ nuetifyLeaderboard: true }, '');
+} catch {}
+const onPopState = () => {
+setShowFull(false);
+};
+window.addEventListener('popstate', onPopState);
+return () => {
+delete w.__nuetifyCloseLeaderboard;
+window.removeEventListener('popstate', onPopState);
+};
+}, [showFull]);
+
   const fetchTop50 = useCallback(async () => {
     try {
       const res = await fetch('/api/leaderboard', { cache: 'no-store' });
