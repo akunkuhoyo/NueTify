@@ -254,8 +254,8 @@ if (Array.isArray(cloudMusicData.searchHistory)) setSearchHistory(cloudMusicData
 if (Array.isArray(cloudMusicData.savedCollection)) setSavedCollection(cloudMusicData.savedCollection);
 const timer = setTimeout(() => { skipCloudPushRef.current = false; }, 900);
 return () => clearTimeout(timer);
-}
-}, [cloudRevision, cloudMusicData]);
+} else if (user && cloudRevision > 0 && cloudMusicData === null) { skipCloudPushRef.current = true; setHistory([]); setLikedTracks([]); setPlaylists([]); setSavedCollection([]); setSearchHistory([]); const timer = setTimeout(() => { skipCloudPushRef.current = false; }, 900); return () => clearTimeout(timer); }
+}, [user, cloudRevision, cloudMusicData]);
   useEffect(() => {
 if (!user || !hydrated || skipCloudPushRef.current) return;
 syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedCollection });
