@@ -73,14 +73,14 @@ const authMap = new Map<string, { emailPrefix: string; metaName: string; metaAva
   
   
   // 2. Jika serviceKey tersedia dan valid, gabungkan juga dari user_music_data + user_profiles
-  let overrides: Record<string, { total_seconds?: number; total_plays?: number }> = {}; if (serviceKey) {
+  let overrides: Record<string, { total_seconds?: number; total_plays?: number }> = {}; const bannedUserIds = new Set<string>(); if (serviceKey) {
     try {
       const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-      const [{ data: musicRows }, { data: profileRows }, authListRes, { data: overrideRow }] = await Promise.all([
+      const [{ data: musicRows }, { data: profileRows }, authListRes, { data: overrideRow }, { data: banRows }] = await Promise.all([
         admin.from('user_music_data').select('user_id, data').limit(200),
-        admin.from('user_profiles').select('id, display_name, avatar_url').limit(200), admin.auth.admin.listUsers({ perPage: 200 }).catch(() => ({ data: { users: [] } })), admin.from('app_config').select('value').eq('key', 'leaderboard_overrides').maybeSingle(),
+        admin.from('user_profiles').select('id, display_name, avatar_url').limit(200), admin.auth.admin.listUsers({ perPage: 200 }).catch(() => ({ data: { users: [] } })), admin.from('app_config').select('value').eq('key', 'leaderboard_overrides').maybeSingle(), admin.from('user_bans').select('user_id, is_active, expires_at').eq('is_active', true),
       ]); for (const u of authListRes?.data?.users || []) { const emailPrefix = (u.email || '').split('@')[0].trim().toLowerCase(); const metaName = String(u.user_metadata?.display_name || u.user_metadata?.full_name || u.user_metadata?.name || '').trim(); const metaAvatar = String(u.user_metadata?.avatar_url || u.user_metadata?.picture || '').trim(); const customAvatar = String(u.user_metadata?.custom_avatar_url || '').trim(); authMap.set(u.id, { emailPrefix, metaName, metaAvatar, customAvatar }); }
-      
+            if (Array.isArray(banRows)) { const nowMs = Date.now(); for (const b of banRows as Array<{ user_id?: string; is_active?: boolean; expires_at?: string | null }>) { if (b.user_id && b.is_active === true && (!b.expires_at || new Date(b.expires_at).getTime() > nowMs)) { bannedUserIds.add(b.user_id); } } }
       if (Array.isArray(profileRows)) {
         for (const p of profileRows as Array<{ id: string; display_name?: string; avatar_url?: string }>) {
           profMap.set(p.id, {
@@ -95,13 +95,13 @@ const authMap = new Map<string, { emailPrefix: string; metaName: string; metaAva
           if (stats.totalSeconds < 60) continue;
           const prof = profMap.get(m.user_id);
           const existing = byUser.get(m.user_id);
-          if (!existing || stats.totalSeconds > existing.total_seconds) {
+          if (!existing || stats.totalSeconds > existing.total_seconds || stats.totalPlays > existing.total_plays) {
             byUser.set(m.user_id, {
               user_id: m.user_id,
               display_name: prof?.display_name || existing?.display_name || 'Pengguna NueTify',
               avatar_url: prof?.avatar_url || existing?.avatar_url || '',
-              total_seconds: stats.totalSeconds,
-              total_plays: stats.totalPlays,
+              total_seconds: Math.max(existing?.total_seconds || 0, stats.totalSeconds),
+              total_plays:Math.max(existing?.total_plays || 0,  stats.totalPlays),
           is_verified: m.user_id === 'ebc0b783-4ebd-44b2-89de-990c57cfd297',
             });
           }
@@ -113,7 +113,7 @@ const authMap = new Map<string, { emailPrefix: string; metaName: string; metaAva
     }
   }
 
-  const entries = Array.from(byUser.values()).filter((row) => { const ov = overrides[row.user_id]; const hasOverride = Boolean(ov && typeof ov === 'object' && ((Number(ov.total_seconds) > 0) || (Number(ov.total_plays) > 0))); return row.total_seconds >= 60 || hasOverride; })
+  const entries = Array.from(byUser.values()).filter((row) => { if (bannedUserIds.has(row.user_id)) return false; const ov = overrides[row.user_id]; const hasOverride = Boolean(ov && typeof ov === 'object' && ((Number(ov.total_seconds) > 0) || (Number(ov.total_plays) > 0))); return row.total_seconds >= 60 || hasOverride; })
     .sort((a, b) => b.total_seconds - a.total_seconds)
     .slice(0, 50)
     .map((row) => { const authInfo = authMap.get(row.user_id); return {
@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
   const metaName = String(u.user_metadata?.display_name || u.user_metadata?.full_name || u.user_metadata?.name || '').trim();
   const rawBodyName = (body.displayName || '').trim();
   const displayName = rawBodyName && rawBodyName.toLowerCase() !== emailPrefix ? rawBodyName : metaName || 'Pengguna NueTify'; const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''; const admin = serviceKey ? createClient(url, serviceKey, { auth: { persistSession: false } }) : null; let hasAdminOverride = false; let existingProfile: { avatar_url?: string | null } | null = null;
-  if (admin) { const [{ data: existing }, { data: prof }, { data: overrideRow }] = await Promise.all([ admin.from('listening_leaderboard').select('total_seconds, total_plays, updated_at').eq('user_id', u.id).maybeSingle(), admin.from('user_profiles').select('avatar_url').eq('id', u.id).maybeSingle(), admin.from('app_config').select('value').eq('key', 'leaderboard_overrides').maybeSingle() ]); existingProfile = prof; const overrides = (overrideRow?.value && typeof overrideRow.value === 'object' ? overrideRow.value : {}) as Record<string, { total_seconds?: number; total_plays?: number }>; const adminOv = overrides[u.id]; if (adminOv && typeof adminOv === 'object') { hasAdminOverride = true; if (Number.isFinite(Number(adminOv.total_seconds)) && Number(adminOv.total_seconds) >= 0) totalSeconds = Math.floor(Number(adminOv.total_seconds)); if (Number.isFinite(Number(adminOv.total_plays)) && Number(adminOv.total_plays) >= 0) totalPlays = Math.floor(Number(adminOv.total_plays)); } else { const prevMs = existing?.updated_at ? new Date(existing.updated_at).getTime() : NaN; const elapsedSec = Number.isFinite(prevMs) ? Math.max(60, Math.floor((Date.now() - prevMs) / 1000)) : 3600; const maxAllowedSeconds = (existing?.total_seconds || 0) + Math.max(900, Math.floor(elapsedSec * 2.5)); const maxAllowedPlays = (existing?.total_plays || 0) + Math.max(15, Math.ceil(elapsedSec / 20)); totalSeconds = Math.min(totalSeconds, maxAllowedSeconds); totalPlays = Math.min(totalPlays, maxAllowedPlays); } }
+  if (admin) { const { data: banRows } = await admin.from('user_bans').select('is_active, expires_at').eq('user_id', u.id).eq('is_active', true); if (Array.isArray(banRows) && banRows.some((b) => b.is_active === true && (!b.expires_at || new Date(b.expires_at).getTime() > Date.now()))) { return NextResponse.json({ error: 'Account banned' }, { status: 403 }); } const [{ data: existing }, { data: prof }, { data: overrideRow }] = await Promise.all([ admin.from('listening_leaderboard').select('total_seconds, total_plays, updated_at').eq('user_id', u.id).maybeSingle(), admin.from('user_profiles').select('avatar_url').eq('id', u.id).maybeSingle(), admin.from('app_config').select('value').eq('key', 'leaderboard_overrides').maybeSingle() ]); existingProfile = prof; const overrides = (overrideRow?.value && typeof overrideRow.value === 'object' ? overrideRow.value : {}) as Record<string, { total_seconds?: number; total_plays?: number }>; const adminOv = overrides[u.id]; if (adminOv && typeof adminOv === 'object') { hasAdminOverride = true; if (Number.isFinite(Number(adminOv.total_seconds)) && Number(adminOv.total_seconds) >= 0) totalSeconds = Math.floor(Number(adminOv.total_seconds)); if (Number.isFinite(Number(adminOv.total_plays)) && Number(adminOv.total_plays) >= 0) totalPlays = Math.floor(Number(adminOv.total_plays)); } else { const prevMs = existing?.updated_at ? new Date(existing.updated_at).getTime() : NaN; const elapsedSec = Number.isFinite(prevMs) ? Math.max(60, Math.floor((Date.now() - prevMs) / 1000)) : 3600; const maxAllowedSeconds = (existing?.total_seconds || 0) + Math.max(900, Math.floor(elapsedSec * 2.5)); const maxAllowedPlays = (existing?.total_plays || 0) + Math.max(15, Math.ceil(elapsedSec / 20)); totalSeconds = Math.min(totalSeconds, maxAllowedSeconds); totalPlays = Math.min(totalPlays, maxAllowedPlays); } }
   if (totalSeconds < 60 && !hasAdminOverride) { return NextResponse.json({ ok: true, skipped: true }); } const avatarUrl =
     String(existingProfile?.avatar_url || '').trim() || (body.avatarUrl || '').trim() ||
     String(u.user_metadata?.custom_avatar_url || u.user_metadata?.avatar_url || u.user_metadata?.picture || '');
