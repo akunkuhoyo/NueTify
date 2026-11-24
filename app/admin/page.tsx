@@ -56,6 +56,8 @@ export default function AdminDashboardPage() {
   const [users, setUsers] = useState<AdminUserRow[]>([]);
   const [logs, setLogs] = useState<AuditLogRow[]>([]);
   const [statusMsg, setStatusMsg] = useState('');
+const [broadcastingUpdate, setBroadcastingUpdate] = useState(false);
+const [broadcastNotice, setBroadcastNotice] = useState<string | null>(null);
 
   const [banTarget, setBanTarget] = useState<AdminUserRow | null>(null);
   const [banDuration, setBanDuration] = useState('24h');
@@ -169,6 +171,34 @@ export default function AdminDashboardPage() {
     }
     setSubmitting(false);
   };
+const handleBroadcastAppUpdate = async () => {
+if (!accessToken || broadcastingUpdate) return;
+setBroadcastingUpdate(true);
+setBroadcastNotice(null);
+try {
+const res = await fetch('/api/admin', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+Authorization: `Bearer ${accessToken}`,
+},
+body: JSON.stringify({
+action: 'broadcast_app_update',
+}),
+});
+const json = (await res.json()) as { ok?: boolean; error?: string };
+if (!res.ok || !json.ok) {
+setBroadcastNotice(json.error ?? 'Gagal mengirim ulang pop-up update.');
+} else {
+setBroadcastNotice('Pop-up update berhasil dikirim ulang ke semua pengguna Android.');
+await loadDashboard(accessToken);
+}
+} catch {
+setBroadcastNotice('Terjadi kesalahan jaringan saat mengirim broadcast update.');
+} finally {
+setBroadcastingUpdate(false);
+}
+};
 
   const handleConfirmBan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -462,7 +492,27 @@ export default function AdminDashboardPage() {
                 onChange={(e) => setMaintenanceMsg(e.target.value)}
                 className="w-full rounded-xl bg-[#242424] border border-[#C0C0C0]/20 p-3 text-sm text-white focus:outline-none focus:border-[#C0C0C0]"
               />
-            </div>
+            </div
+<div className="pt-4 border-t border-[#C0C0C0]/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+<div>
+<h3 className="text-sm font-bold text-white">Update Aplikasi Android (Real-Time)</h3>
+<p className="text-xs text-[#A7A7A7] mt-0.5">
+Kirim ulang pop-up update ke seluruh pengguna aplikasi Android secara real-time.
+</p>
+{broadcastNotice && (
+<p className="text-xs text-[#C0C0C0] mt-1.5">{broadcastNotice}</p>
+)}
+</div>
+<button
+type="button"
+disabled={broadcastingUpdate}
+onClick={() => void handleBroadcastAppUpdate()}
+className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-xs font-bold bg-[#C0C0C0] text-black hover:bg-white disabled:opacity-50 shrink-0"
+>
+<RefreshCw className={`w-3.5 h-3.5 ${broadcastingUpdate ? 'animate-spin' : ''}`} />
+<span>{broadcastingUpdate ? 'Mengirim...' : 'Kirim Ulang Pop-Up Update ke Semua User'}</span>
+</button>
+</div>>
           </section>
         )}
 
