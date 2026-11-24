@@ -184,8 +184,9 @@ export function SearchView() {
   const [searchPage, setSearchPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMoreRemote, setHasMoreRemote] = useState(true);
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-  
+  const loadMoreRef = useRef<HTMLButtonElement | null>(null);
+  const existingTracksRef = useRef<Track[]>([]);
+  existingTracksRef.current = results?.tracks ?? [];
   const localResults = useMemo(() => {
     if (scope !== 'local') return { tracks: [], playlists: [] };
     return searchLocalLibrary({
@@ -268,7 +269,7 @@ export function SearchView() {
   );
   const loadMoreSongs = useCallback(async () => {
     if (visibleSongs < sortedOnlineTracks.length) {
-      setVisibleSongs((prev) => prev + 5);
+      setVisibleSongs((prev) => Math.min(sortedOnlineTracks.length, prev + 5));
       return;
     }
     if (
@@ -303,23 +304,14 @@ export function SearchView() {
         ? rawTracks.filter((t) => t.type !== 'VIDEO')
         : rawTracks;
 
-      let addedCount = 0;
-      setResults((prev) => {
-        if (!prev) return prev; const existingIds = new Set(prev.tracks.map((t) => t.videoId));
-        const newTracks = filteredTracks.filter((t) => t.videoId && !existingIds.has(t.videoId));
-        addedCount = newTracks.length;
-        if (addedCount === 0) return prev;
-        return {
-          ...prev,
-          tracks: [...prev.tracks, ...newTracks],
-        };
-      });
-
-      setSearchPage(nextPage);
-      if (addedCount > 0) {
+   const existingIds = new Set(existingTracksRef.current.map((t) => t.videoId));
+      const newTracks = filteredTracks.filter((t) => t.videoId && !existingIds.has(t.videoId));
+      if (newTracks.length > 0) {
+        setResults((prev) => (prev ? { ...prev, tracks: [...prev.tracks, ...newTracks] } : prev));
         setVisibleSongs((prev) => prev + 5);
       }
-      setHasMoreRemote(Boolean(data.hasMore) && addedCount > 0);
+      setSearchPage(nextPage);
+      setHasMoreRemote(Boolean(data.hasMore));
     } catch {
       // ignore load-more errors
     } finally {
@@ -351,18 +343,26 @@ export function SearchView() {
     );
     observer.observe(el);
 
+ let scrollContainer: HTMLElement | null = el.parentElement;
+    while (scrollContainer && scrollContainer !== document.body && scrollContainer !== document.documentElement) {
+      const overflowY = getComputedStyle(scrollContainer).overflowY;
+      if (overflowY === 'auto' || overflowY === 'scroll') break;
+      scrollContainer = scrollContainer.parentElement;
+    }
+    if (scrollContainer === document.body || scrollContainer === document.documentElement) scrollContainer = null;
     const handleScroll = () => {
-      const distanceToBottom =
-        document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
-      if (distanceToBottom <= 260) {
-        void loadMoreSongs();
-      }
-    };
+      const scrollTop = Math.max(window.scrollY, document.documentElement.scrollTop, document.body.scrollTop);
+      const docHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+      const containerDistance = scrollContainer ? scrollContainer.scrollHeight - (scrollContainer.scrollTop + scrollContainer.clientHeight) : Infinity;
+      const distanceToBottom = Math.min(containerDistance, docHeight - (scrollTop + window.innerHeight));
+      if (distanceToBottom <= 260) void loadMoreSongs();
+      };
     window.addEventListener('scroll', handleScroll, { passive: true });
-
+    scrollContainer?.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
       observer.disconnect();
       window.removeEventListener('scroll', handleScroll);
+      scrollContainer?.removeEventListener('scroll', handleScroll);
     };
   }, [loadMoreSongs]);
 
@@ -1165,7 +1165,7 @@ export function SearchView() {
                   );
                 })}
               </div>
-     {(visibleSongs < sortedOnlineTracks.length || (hasMoreRemote && (activeTab === 'all' || activeTab === 'songs' || activeTab === 'videos'))) && (<div ref={loadMoreRef} onClick={() => void loadMoreSongs()} role="button" tabIndex={0} className="py-3 text-center text-xs text-[#8E8E93] cursor-pointer hover:text-white transition-colors">{loadingMore ? 'Memuat 5 lagu berikutnya...' : 'Scroll atau ketuk untuk memuat 5 lagu lagi'}</div>)}
+     {(visibleSongs < sortedOnlineTracks.length || (hasMoreRemote && (activeTab === 'all' || activeTab === 'songs' || activeTab === 'videos'))) && (<button type="button" ref={loadMoreRef} onClick={() => void loadMoreSongs()} disabled={loadingMore} className="w-full py-3.5 px-4 mt-2 rounded-2xl bg-[#1E1E1E] border border-[#C0C0C0]/20 text-center text-xs font-semibold text-[#E5E5E5] active:scale-[0.98] hover:bg-[#2A2A2A] transition-all cursor-pointer">{loadingMore ? 'Memuat 5 lagu berikutnya...' : 'Scroll atau ketuk untuk memuat 5 lagu lagi'}</button>)}
             </section>
           )}
 
