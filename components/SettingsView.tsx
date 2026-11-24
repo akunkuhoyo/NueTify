@@ -6,7 +6,7 @@ import {
   AlertTriangle,
   AlignCenter,
   AlignLeft,
-  AlignRight,
+  AlignRight, Award,
   Check,
   Database,
   Download,
@@ -77,7 +77,7 @@ type SettingsCategory =
   | 'content'
   | 'storage'
   | 'community'
-  | 'about';
+  | 'credits' | 'about';
 
 const REGIONS: { code: ContentRegion; label: string; native: string }[] = [
   { code: 'ID', label: 'Indonesia', native: 'ID' },
@@ -177,7 +177,7 @@ const CATEGORIES: {
   { id: 'content', label: 'Content', icon: Globe },
   { id: 'storage', label: 'Storage', icon: Database },
   { id: 'community', label: 'Community', icon: Users },
-  { id: 'about', label: 'About', icon: Info },
+  { id: 'credits', label: 'Credits', icon: Award }, { id: 'about', label: 'About', icon: Info },
 ];
 
 function M3Switch({
@@ -1842,7 +1842,7 @@ export function SettingsView() {
         </section>
       )}
 
-      {/* 6. ABOUT */}
+      {/* CREDITS */} {showSection('credits', 'credit credits sann404 forum group whatsapp nueva') && (<section className="space-y-2.5"><h2 className="px-1 text-[12px] font-bold uppercase tracking-wider text-[var(--m3-primary)]">Credits</h2><div className="rounded-[24px] metro-surface p-5 space-y-4"><div className="flex items-start justify-between gap-3"><div className="flex items-center gap-3 min-w-0"><span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: 'color-mix(in srgb, var(--m3-primary) 16%, transparent)', color: 'var(--m3-primary)' }}><Award className="w-5 h-5" /></span><div className="min-w-0"><h3 className="text-[15px] font-extrabold tracking-tight">SANN404 FORUM GROUP</h3><span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold" style={{ backgroundColor: 'color-mix(in srgb, var(--m3-primary) 14%, transparent)', color: 'var(--m3-primary)' }}>Special Credit &amp; Community</span></div></div></div><p className="text-[13px] opacity-80 leading-relaxed">Apresiasi dan ucapan terima kasih kepada SANN404 FORUM GROUP atas fondasi proyek, inspirasi arsitektur, serta komunitas teknologi yang turut mendorong pengembangan NueTify.</p><a href="https://whatsapp.com/channel/0029Vb7vOOyLY6cyTRQF1M06" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-opacity hover:opacity-90" style={{ backgroundColor: 'var(--m3-primary)', color: 'var(--m3-on-primary, #000)' }}><span>Kunjungi Saluran WhatsApp SANN404 FORUM GROUP</span><ExternalLink className="w-4 h-4 shrink-0" /></a><div className="pt-3 border-t border-white/10 text-[12px] opacity-65">Tim Pengembang NueTify — PT Nueva Group</div></div></section>)} {/* 6. ABOUT */}
       {showSection('about', 'about nuetify pt nueva group version ytmusic-api vercel') && (
         <section className="space-y-2.5">
           <h2 className="px-1 text-[12px] font-bold uppercase tracking-wider text-[var(--m3-primary)]">
