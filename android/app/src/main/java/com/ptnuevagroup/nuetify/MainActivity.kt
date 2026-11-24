@@ -56,9 +56,13 @@ class MainActivity : AppCompatActivity() {
     private var loudnessEnhancer: LoudnessEnhancer? = null
     private var lastEqBandsJson: String = ""
     private var lastBassBoostOn: Boolean = false
+    private var desiredEqEnabled = false
+    private var desiredBassBoostEnabled = false
+    private var desiredLoudnessEnabled = false
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        activeInstance = java.lang.ref.WeakReference(this)
 
         window.statusBarColor = Color.parseColor("#121212")
         window.navigationBarColor = Color.parseColor("#121212")
@@ -178,7 +182,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun initAudioEffects() {
         try {
-            equalizer = Equalizer(0, 0).apply { enabled = true }
+            equalizer = Equalizer(0, 0).apply { enabled = false }
         } catch (_: Exception) {
             equalizer = null
         }
@@ -191,6 +195,15 @@ class MainActivity : AppCompatActivity() {
             loudnessEnhancer = LoudnessEnhancer(0).apply { enabled = false }
         } catch (_: Exception) {
             loudnessEnhancer = null
+        }
+    }
+
+    fun updateHardwareAudioEffectsEnabled() {
+        runOnUiThread {
+            val shouldEnable = isNueTifyPlaying && !hasExternalAudioFocusLoss
+            try { equalizer?.enabled = shouldEnable && desiredEqEnabled } catch (_: Exception) {}
+            try { bassBoost?.enabled = shouldEnable && desiredBassBoostEnabled } catch (_: Exception) {}
+            try { loudnessEnhancer?.enabled = shouldEnable && desiredLoudnessEnabled } catch (_: Exception) {}
         }
     }
 
@@ -213,9 +226,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        try { equalizer?.release() } catch (_: Exception) {}
-        try { bassBoost?.release() } catch (_: Exception) {}
-        try { loudnessEnhancer?.release() } catch (_: Exception) {}
+        try {equalizer?.enabled = false;  equalizer?.release() } catch (_: Exception) {}
+        try {bassBoost?.enabled = false;  bassBoost?.release() } catch (_: Exception) {}
+        try {loudnessEnhancer?.enabled = false;  loudnessEnhancer?.release() } catch (_: Exception) {}
         super.onDestroy()
     }
 
@@ -238,6 +251,9 @@ class MainActivity : AppCompatActivity() {
             positionMs: Long,
             durationMs: Long
         ) {
+            isNueTifyPlaying = isPlaying
+            if (isPlaying) hasExternalAudioFocusLoss = false
+            updateHardwareAudioEffectsEnabled()
             val intent = Intent(this@MainActivity, MusicForegroundService::class.java).apply {
                 action = MusicForegroundService.ACTION_UPDATE
                 putExtra("title", title)
@@ -258,6 +274,9 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun updateMediaPosition(positionMs: Long, durationMs: Long, isPlaying: Boolean) {
+            isNueTifyPlaying = isPlaying
+            if (isPlaying) hasExternalAudioFocusLoss = false
+            updateHardwareAudioEffectsEnabled()
             val intent = Intent(this@MainActivity, MusicForegroundService::class.java).apply {
                 action = MusicForegroundService.ACTION_POSITION
                 putExtra("positionMs", positionMs)
@@ -289,7 +308,7 @@ class MainActivity : AppCompatActivity() {
                         val minLevel = eq.bandLevelRange[0].toInt()
                         val maxLevel = eq.bandLevelRange[1].toInt()
                         val anyNonZero = gainsDb.any { it != 0.0 }
-                        eq.enabled = anyNonZero
+                       //  eq.enabled = anyNonZero
                         for (b in 0 until numBands) {
                             val idx = if (gainsDb.isNotEmpty()) {
                                 ((b.toDouble() / numBands) * gainsDb.size).toInt().coerceIn(0, gainsDb.size - 1)
@@ -306,7 +325,7 @@ class MainActivity : AppCompatActivity() {
                     loudnessEnhancer?.let { le ->
                         if (extraBoostMb > 0) {
                             le.setTargetGain(extraBoostMb.coerceAtMost(2500))
-                            le.enabled = true
+                            // le.enabled = true
                         } else {
                             le.setTargetGain(0)
                             le.enabled = false
@@ -315,11 +334,15 @@ class MainActivity : AppCompatActivity() {
                     bassBoost?.let { bb ->
                         if (bassBoostOn) {
                             bb.setStrength(800.toShort())
-                            bb.enabled = true
+                            // bb.enabled = true
                         } else {
                             bb.setStrength(0.toShort())
                             bb.enabled = false
                         }
+                    desiredEqEnabled = gainsDb.any { it != 0.0 }
+                    desiredBassBoostEnabled = bassBoostOn
+                    desiredLoudnessEnabled = extraBoostMb > 0
+                    updateHardwareAudioEffectsEnabled()   
                     }
                 } catch (_: Exception) {
                 }
@@ -513,6 +536,23 @@ Toast.makeText(this@MainActivity, "Silakan buka folder Download secara manual", 
             }
         } else {
             moveTaskToBack(true)
+        }
+    }
+
+    companion object {
+        @Volatile var isNueTifyPlaying: Boolean = false
+        @Volatile var hasExternalAudioFocusLoss: Boolean = false
+        private var activeInstance: java.lang.ref.WeakReference<MainActivity>? = null
+
+        fun onExternalAudioFocusLost() {
+            hasExternalAudioFocusLoss = true
+            isNueTifyPlaying = false
+            activeInstance?.get()?.updateHardwareAudioEffectsEnabled()
+        }
+
+        fun onExternalAudioFocusGained() {
+            hasExternalAudioFocusLoss = false
+            activeInstance?.get()?.updateHardwareAudioEffectsEnabled()
         }
     }
 }
