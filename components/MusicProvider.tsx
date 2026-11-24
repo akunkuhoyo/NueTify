@@ -1370,7 +1370,7 @@ resumeCheckTimer = window.setTimeout(() => {
         description: description?.trim() || '',
         createdAt: now,
         updatedAt: now,
-        tracks: initialTracks,
+        tracks: initialTracks.slice(0, 100),
       };
       setPlaylists((prev) => {
         const next = [created, ...prev];
@@ -1439,7 +1439,7 @@ resumeCheckTimer = window.setTimeout(() => {
       setPlaylists((prev) => {
         const next = prev.map((pl) => {
           if (pl.id !== playlistId) return pl;
-          if (pl.tracks.some((t) => t.videoId === track.videoId)) return pl;
+          if (pl.tracks.some((t) => t.videoId === track.videoId)) return pl; if (pl.tracks.length >= 100) return pl;
           return {
             ...pl,
             updatedAt: Date.now(),
