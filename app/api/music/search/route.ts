@@ -209,6 +209,9 @@ map.set(track.videoId, { ...existing, sourceIndex: track.sourceIndex });
 }
 return Array.from(map.values());
 }
+function balanceOriginalAndVariants(sortedTracks: TrackCandidate[]): TrackCandidate[] {
+  const allGroups = Object.values(MODIFIER_GROUPS); const originals: TrackCandidate[] = []; const variants: TrackCandidate[] = [];
+  for (const track of sortedTracks) { if (matchesRequestedModifiers(track, allGroups)) variants.push(track); else originals.push(track); } const result: TrackCandidate[] = [...originals.splice(0, 2), ...variants.splice(0, 3)]; let i = 0, j = 0; while (i < originals.length || j < variants.length) { if (i < originals.length) result.push(originals[i++]); if (j < variants.length) result.push(variants[j++]); } return result; }
 
 export async function GET(req: NextRequest) {
 try {
@@ -280,7 +283,7 @@ if (requestedGroups.length > 0) {
 const strictMatched = baseTracks.filter((t) =>
 matchesRequestedModifiers(t, requestedGroups)
 );
-if (strictMatched.length >= 3) {
+if (strictMatched.length >= 1) { // if (strictMatched.length >= 3) {
 finalTracks = strictMatched;
 }
 }
@@ -290,7 +293,8 @@ finalTracks.sort(
 scoreTrackRelevance(b, query, tasteTokens) -
 scoreTrackRelevance(a, query, tasteTokens)
 );
-
+if (requestedGroups.length === 0) { finalTracks = balanceOriginalAndVariants(finalTracks); }
+  
 if (type === 'songs') {
 return NextResponse.json({
 results: finalTracks.slice(0, 20),
@@ -323,16 +327,17 @@ kind: 'TRACK' as const,
 sourceIndex: idx,
 }));
 
-const deduped = dedupTracks([...songTracks, ...videoTracks]);
+// const deduped = dedupTracks([...songTracks, ...videoTracks]);
+const deduped = dedupTracks(requestedGroups.length > 0 ? [...videoTracks, ...songTracks] : [...songTracks, ...videoTracks]); // const meaningful = deduped.filter((t) => hasMeaningfulTokenMatch(t, query));
 const meaningful = deduped.filter((t) => hasMeaningfulTokenMatch(t, query));
-const baseTracks = meaningful.length > 0 ? meaningful : deduped;
+  const baseTracks = meaningful.length > 0 ? meaningful : deduped;
 
 let finalTracks = baseTracks;
 if (requestedGroups.length > 0) {
 const strictMatched = baseTracks.filter((t) =>
 matchesRequestedModifiers(t, requestedGroups)
 );
-if (strictMatched.length >= 3) {
+if (strictMatched.length >= 1) { // if (strictMatched.length >= 3) {
 finalTracks = strictMatched;
 }
 }
@@ -342,7 +347,8 @@ finalTracks.sort(
 scoreTrackRelevance(b, query, tasteTokens) -
 scoreTrackRelevance(a, query, tasteTokens)
 );
-
+if (requestedGroups.length === 0) { finalTracks = balanceOriginalAndVariants(finalTracks); }
+  
 return NextResponse.json({
 results: finalTracks.slice(0, 20),
 hasMore: page < 5 && finalTracks.length > 0,
