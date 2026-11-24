@@ -127,7 +127,7 @@ export function MaintenanceGate({ children }: { children: React.ReactNode }) {
             <RefreshCw className="w-4 h-4" />
             <span>Cek Status Lagi</span>
           </button>
-
+            {!isDev && (<a href="/admin" className="inline-block text-xs text-[#A7A7A7] hover:text-white underline pt-1">Login Developer</a>)}
           {isDev && (
             <button
               type="button"
