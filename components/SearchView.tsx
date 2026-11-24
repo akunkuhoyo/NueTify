@@ -283,35 +283,57 @@ export function SearchView() {
 
     setLoadingMore(true);
     try {
-      const nextPage = searchPage + 1;
-      const headers: Record<string, string> = {};
-      if (settings.ytCookie.trim()) {
-        headers['x-yt-cookie'] = settings.ytCookie.trim();
-      }
-      const res = await fetch(
-        `/api/music/search?q=${encodeURIComponent(submittedQuery)}&type=${activeTab}&gl=${settings.region}&page=${nextPage}${tasteHint ? `&taste=${encodeURIComponent(tasteHint)}` : ''}`,
-        { headers }
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as {
-        results?: Array<Track & { kind?: string }>;
-        hasMore?: boolean;
-      };
-      const rawTracks = (data.results || []).filter(
-        (i): i is Track & { kind: 'TRACK' } => i.kind === 'TRACK'
-      );
-      const hasStyleModifier = /\b(dj|remix|rmx|slowed|reverb|sped|nightcore|koplo|dangdut|phonk|jj|slowbass|jedag|bass)\b/i.test(submittedQuery); const filteredTracks = (settings.hideVideoSongs && !hasStyleModifier)
-        ? rawTracks.filter((t) => t.type !== 'VIDEO')
-        : rawTracks;
+let pageToFetch = searchPage + 1;
+const headers: Record<string, string> = {};
+if (settings.ytCookie.trim()) {
+headers['x-yt-cookie'] = settings.ytCookie.trim();
+}
+const existingIds = new Set(existingTracksRef.current.map((t) => t.videoId));
+const collectedNew: Track[] = [];
+let lastHasMore = true;
+let attempts = 0;
 
-   const existingIds = new Set(existingTracksRef.current.map((t) => t.videoId));
-      const newTracks = filteredTracks.filter((t) => t.videoId && !existingIds.has(t.videoId));
-      if (newTracks.length > 0) {
-        setResults((prev) => (prev ? { ...prev, tracks: [...prev.tracks, ...newTracks] } : prev));
-        setVisibleSongs((prev) => prev + 5);
-      }
-      setSearchPage(nextPage);
-      setHasMoreRemote(Boolean(data.hasMore));
+while (collectedNew.length < 5 && attempts < 3) {
+attempts++;
+const pool = existingTracksRef.current;
+const seedTrack = pool.length > 0 ? pool[(pageToFetch * 3) % pool.length] : null;
+const seedId = seedTrack?.videoId || '';
+
+const res = await fetch(
+`/api/music/search?q=${encodeURIComponent(submittedQuery)}&type=${activeTab}&gl=${settings.region}&page=${pageToFetch}${seedId ? `&seedId=${encodeURIComponent(seedId)}` : ''}${tasteHint ? `&taste=${encodeURIComponent(tasteHint)}` : ''}`,
+{ headers }
+);
+if (!res.ok) break;
+const data = (await res.json()) as {
+results?: Array<Track & { kind?: string }>;
+hasMore?: boolean;
+};
+lastHasMore = Boolean(data.hasMore);
+
+const rawTracks = (data.results || []).filter(
+(i): i is Track & { kind: 'TRACK' } => i.kind === 'TRACK'
+);
+const hasStyleModifier = /\b(dj|remix|rmx|slowed|reverb|sped|nightcore|koplo|dangdut|phonk|jj|slowbass|jedag|bass)\b/i.test(submittedQuery);
+const filteredTracks = !hasStyleModifier && settings.hideVideoSongs
+? rawTracks.filter((t) => t.type !== 'VIDEO')
+: rawTracks;
+
+for (const t of filteredTracks) {
+if (t.videoId && !existingIds.has(t.videoId)) {
+existingIds.add(t.videoId);
+collectedNew.push(t);
+}
+}
+pageToFetch++;
+}
+
+if (collectedNew.length > 0) {
+existingTracksRef.current = [...existingTracksRef.current, ...collectedNew];
+setResults((prev) => (prev ? { ...prev, tracks: [...prev.tracks, ...collectedNew] } : prev));
+setVisibleSongs((prev) => prev + 5);
+}
+setSearchPage(pageToFetch - 1);
+setHasMoreRemote(collectedNew.length > 0 || lastHasMore);
     } catch {
       // ignore load-more errors
     } finally {
