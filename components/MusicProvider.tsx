@@ -1271,13 +1271,30 @@ resumeCheckTimer = window.setTimeout(() => {
     setQueueState((prev) => reorderQueue(prev, from, to));
   }, []);
 
+  const preservePlaybackAfterControl = useCallback(() => {
+    if (!intendedPlayingRef.current || userPausedRef.current) return;
+    [120, 350].forEach((ms) => {
+      window.setTimeout(() => {
+        if (intendedPlayingRef.current && !userPausedRef.current) {
+          const st = ytPlayerRef.current?.getPlayerState?.();
+          if (st === 2 || st === 5) {
+            ytPlayerRef.current?.playVideo?.();
+            setIsPlaying(true);
+          }
+        }
+      }, ms);
+    });
+  }, []);
+
   const toggleShuffle = useCallback(() => {
     setQueueState((prev) => toggleShuffleQueue(prev));
-  }, []);
+    preservePlaybackAfterControl();
+  }, [preservePlaybackAfterControl]);
 
   const cycleRepeat = useCallback(() => {
     setQueueState((prev) => ({ ...prev, repeat: cycleRepeatMode(prev.repeat) }));
-  }, []);
+    preservePlaybackAfterControl();
+  }, [preservePlaybackAfterControl]);
 
   const jumpToQueueIndex = useCallback((idx: number) => {
     setQueueState((prev) => {
