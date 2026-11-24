@@ -110,11 +110,11 @@ return text.includes(syn);
 }
 
 function qualityPenalty(
-track: { title?: string; duration?: number },
+track: { title?: string; duration?: number | null },
 query: string
 ): number {
 let penalty = 0;
-const dur = track.duration || 0;
+const dur = typeof track.duration === 'number' ? track.duration : 0;
 if (dur > 0 && dur < 45) {
 penalty -= 150;
 }
@@ -226,7 +226,7 @@ if (!query) {
 return NextResponse.json({ results: [], hasMore: false });
 }
 
-const yt = await getYTMusicClient();
+const yt = await getYTMusicClient({ gl, hl });
 const requestedKeys = getRequestedModifierKeys(query);
 const requestedGroups = requestedKeys.map((k) => MODIFIER_GROUPS[k]);
 const hasDjModifier = requestedKeys.includes('dj');
