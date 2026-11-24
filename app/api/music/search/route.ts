@@ -226,7 +226,9 @@ if (!query) {
 return NextResponse.json({ results: [], hasMore: false });
 }
 
-const yt = await getYTMusicClient({ gl, hl });
+const gl = (searchParams.get('gl') || 'ID').toUpperCase();
+  const hl = gl === 'ID' ? 'id' : 'en';
+  const yt = await getYTMusicClient({ gl, hl });
 const requestedKeys = getRequestedModifierKeys(query);
 const requestedGroups = requestedKeys.map((k) => MODIFIER_GROUPS[k]);
 const hasDjModifier = requestedKeys.includes('dj');
