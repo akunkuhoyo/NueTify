@@ -1,4 +1,4 @@
-import { createInitialSeedState, DEFAULT_SETTINGS } from './seed';
+import { DEFAULT_SETTINGS } from './seed';
 import type { PlayEvent, PlayerSettings, Track, UserPlaylist } from './types';
 
 const KEYS = {
@@ -39,11 +39,10 @@ function safeParse<T>(raw: string | null, fallback: T): T {
 
 export function loadLibraryState(): PersistedLibraryState {
   if (typeof window === 'undefined') {
-    const seed = createInitialSeedState();
     return {
-      ...seed,
+      history: [], likedTracks: [], playlists: [],
       settings: DEFAULT_SETTINGS,
-      searchHistory: ['Daft Punk', 'The Weeknd', 'Lofi Chill'],
+      searchHistory: [],
       savedCollection: [],
     };
   }
@@ -53,33 +52,31 @@ export function loadLibraryState(): PersistedLibraryState {
     window.localStorage.getItem(KEYS.HISTORY) !== null;
 
   if (!hasExisting) {
-    const seed = createInitialSeedState();
-    saveHistory(seed.history);
-    saveLikedTracks(seed.likedTracks);
-    savePlaylists(seed.playlists);
+    saveHistory([]);
+    saveLikedTracks([]);
+    savePlaylists([]);
     saveSettings(DEFAULT_SETTINGS);
-    saveSearchHistory(['Daft Punk', 'The Weeknd', 'Lofi Chill']);
+    saveSearchHistory([]);
     return {
-      ...seed,
+      history: [], likedTracks: [], playlists: [],
       settings: DEFAULT_SETTINGS,
-      searchHistory: ['Daft Punk', 'The Weeknd', 'Lofi Chill'],
+      searchHistory: [],
       savedCollection: [],
     };
   }
 
-  const seed = createInitialSeedState();
   return {
     history: safeParse<PlayEvent[]>(
       window.localStorage.getItem(KEYS.HISTORY),
-      seed.history
+      []
     ),
     likedTracks: safeParse<Track[]>(
       window.localStorage.getItem(KEYS.LIKED),
-      seed.likedTracks
+      []
     ),
     playlists: safeParse<UserPlaylist[]>(
       window.localStorage.getItem(KEYS.PLAYLISTS),
-      seed.playlists
+      []
     ),
     settings: {
       ...DEFAULT_SETTINGS,
@@ -90,7 +87,7 @@ export function loadLibraryState(): PersistedLibraryState {
     },
     searchHistory: safeParse<string[]>(
       window.localStorage.getItem(KEYS.SEARCH_HISTORY),
-      ['Daft Punk', 'The Weeknd', 'Lofi Chill']
+      []
     ),
     savedCollection: safeParse<SavedCollectionItem[]>(
       window.localStorage.getItem(KEYS.SAVED_COLLECTION),
