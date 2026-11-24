@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-getYTMusic,
+getYTMusicClient,
 normalizeSong,
 normalizeVideo,
 normalizeAlbum,
@@ -226,7 +226,7 @@ if (!query) {
 return NextResponse.json({ results: [], hasMore: false });
 }
 
-const yt = await getYTMusic();
+const yt = await getYTMusicClient();
 const requestedKeys = getRequestedModifierKeys(query);
 const requestedGroups = requestedKeys.map((k) => MODIFIER_GROUPS[k]);
 const hasDjModifier = requestedKeys.includes('dj');
