@@ -206,7 +206,7 @@ export function SearchView() {
     [results?.tracks, sortMode]
   );
 
-  const tasteHint = useMemo(() => { const counts = new Map<string, number>(); for (const track of history) { const artist = track.artist?.trim(); if (!artist || artist.toLowerCase() === 'unknown artist') continue; counts.set(artist, (counts.get(artist) ?? 0) + 1); } return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([artist]) => artist).join(','); }, [history]); const executeSearch = useCallback(
+  const tasteHint = useMemo(() => { const counts = new Map<string, number>(); for (const item of history) { const artist = item.track?.artist?.trim(); if (!artist || artist.toLowerCase() === 'unknown artist') continue; counts.set(artist, (counts.get(artist) ?? 0) + 1); } return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([artist]) => artist).join(','); }, [history]); const executeSearch = useCallback(
     async (q: string, tab: SearchTab = activeTab) => {
       const trimmed = q.trim();
       if (!trimmed) return;
