@@ -600,14 +600,7 @@ const seenIds = new Set<string>([spotlightTrack.videoId]);
                     previewTracks.push(t);
                     if (previewTracks.length >= 2) break;
                   }
-                  if (previewTracks.length < 2) {
-                    for (const t of mixPool) {
-                      if (seenIds.has(t.videoId)) continue;
-                      seenIds.add(t.videoId);
-                      previewTracks.push(t);
-                      if (previewTracks.length >= 2) break;
-                    }
-                  }
+                  
 const isActiveSpotlight =
   currentTrack?.videoId === spotlightTrack.videoId && isPlaying;
 
@@ -646,7 +639,7 @@ return (
     </div>
 
     {/* Preview 2 lagu berikutnya di dalam Mix */}
-    {previewTracks.length > 0 && (
+    {previewTracks.length > 0 ? (
       <div className="rounded-2xl bg-[#121212] border border-[#C0C0C0]/10 divide-y divide-[#C0C0C0]/10 overflow-hidden">
         {previewTracks.map((item) => (
           <button
@@ -676,7 +669,7 @@ return (
           </button>
         ))}
       </div>
-    )}
+    ) : ( <div className="rounded-2xl bg-[#121212] border border-[#C0C0C0]/10 px-4 py-3 text-center"><p className="text-[12px] text-[#8E8E93]">Belum ada riwayat putar. Mulai putar lagu pertamamu!</p></div> )}
 
     {/* Tombol Aksi */}
     <div className="grid grid-cols-2 sm:flex sm:items-center gap-2.5">
