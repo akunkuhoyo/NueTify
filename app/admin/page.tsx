@@ -113,9 +113,9 @@ const [broadcastNotice, setBroadcastNotice] = useState<string | null>(null);
         }
         setChecking(false);
       })
-      .catch(() => setChecking(false));
+      .catch(() => setChecking(false)); const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => { const token = session?.access_token || ''; const em = session?.user?.email || ''; if (token) { const ok = await loadDashboard(token); if (ok) { setAccessToken(token); setAdminEmail(em); } setChecking(false); } }); return () => { subscription.unsubscribe(); };
   }, [loadDashboard]);
-
+  const handleGoogleLogin = async () => { setAuthError(''); setSubmitting(true); const supabase = getSupabaseClient(); if (!supabase) { setAuthError('Konfigurasi Supabase belum tersedia.'); setSubmitting(false); return; } const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/admin`, queryParams: { prompt: 'select_account' } } }); if (error) { setAuthError(error.message || 'Gagal login dengan Google.'); setSubmitting(false); } };
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
@@ -369,7 +369,7 @@ setBroadcastingUpdate(false);
               className="w-full rounded-full bg-[#C0C0C0] text-black font-bold text-sm py-3 hover:bg-[#D4D4D8] disabled:opacity-50"
             >
               {submitting ? 'Memverifikasi...' : 'Masuk Dashboard Admin'}
-            </button>
+            </button> <button type="button" onClick={handleGoogleLogin} disabled={submitting} className="w-full rounded-full border border-[#C0C0C0]/30 bg-[#242424] text-white font-semibold text-sm py-3 hover:bg-[#2E2E2E] disabled:opacity-50">Masuk dengan Google (Developer)</button>
           </form>
 
           <Link
