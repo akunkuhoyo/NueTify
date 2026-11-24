@@ -191,7 +191,7 @@ score += 18;
 
 score += qualityPenalty(track, query);
 return score;
-},
+}
 
 function dedupTracks(tracks: TrackCandidate[]): TrackCandidate[] {
 const map = new Map<string, TrackCandidate>();
