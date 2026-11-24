@@ -236,6 +236,7 @@ export async function POST(req: NextRequest) {
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
     }
+    await userClient.from('listening_leaderboard').delete().eq('user_id', targetId);
     await userClient.from('admin_audit_logs').insert({
       admin_email: user.email || ADMIN_EMAIL,
       action: 'BAN_USER',
