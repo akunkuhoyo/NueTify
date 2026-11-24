@@ -201,7 +201,9 @@ if (profRow.display_name !== resolved.display_name || (!profRow.avatar_url && re
             // ignore leaderboard sync errors
           }
         }
-      }
+      } else { setCloudMusicData(null);
+              setCloudRevision((r) => r + 1);
+             }
       setSyncStatus('synced');
     } catch {
       setProfile(fallback);
@@ -657,10 +659,11 @@ if (profRow.display_name !== resolved.display_name || (!profRow.avatar_url && re
     setUser(null);
     setProfile(null); setBanInfo(null);
     setIsGuest(false);
-    setCloudMusicData(null);
+    setCloudMusicData(null); setCloudRevision(0);
     setSyncStatus('idle');
     try {
-      window.sessionStorage.removeItem(GUEST_STORAGE_KEY);
+      window.sessionStorage.removeItem(GUEST_STORAGE_KEY); Object.keys(window.localStorage).forEach((key) => {
+       const lower = key.toLowerCase(); if (lower.includes('metrolist') || lower.includes('sonara') || lower.includes('nuetify_library')) { window.localStorage.removeItem(key); } }) ;
     } catch {
       // ignore
     }
