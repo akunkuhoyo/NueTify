@@ -493,7 +493,7 @@ setBroadcastingUpdate(false);
                 className="w-full rounded-xl bg-[#242424] border border-[#C0C0C0]/20 p-3 text-sm text-white focus:outline-none focus:border-[#C0C0C0]"
               />
             </div
-  <div className="pt-4 border-t border-[#C0C0C0]/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+<div className="pt-4 border-t border-[#C0C0C0]/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
   <div>
   <h3 className="text-sm font-bold text-white">Update Aplikasi Android (Real-Time)</h3>
   <p className="text-xs text-[#A7A7A7] mt-0.5">
