@@ -404,37 +404,104 @@ class MainActivity : AppCompatActivity() {
                     val downloadId = dm.enqueue(request)
                     Toast.makeText(this@MainActivity, "Mengunduh update NueTify...", Toast.LENGTH_LONG).show()
 
-                    val receiver = object : BroadcastReceiver() {
-                        override fun onReceive(context: Context?, intent: Intent?) {
-                            val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L) ?: -1L
-                            if (id == downloadId) {
-                                try {
-                                    unregisterReceiver(this)
-                                } catch (_: Exception) {}
-                                try {
-                                    val apkUri = dm.getUriForDownloadedFile(downloadId)
-                                    if (apkUri != null) {
-                                        val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                                            setDataAndType(apkUri, "application/vnd.android.package-archive")
-                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        startActivity(installIntent)
-                                    }
-                                } catch (_: Exception) {}
-                            }
-                        }
-                    }
-                    ContextCompat.registerReceiver(
-                        this@MainActivity,
-                        receiver,
-                        IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-                        ContextCompat.RECEIVER_EXPORTED
-                    )
+                   fun reportProgress(pct: Int, statusStr: String) {
+val safeFile = fileName.replace("'", "\\'")
+runOnUiThread {
+if (::webView.isInitialized) {
+webView.evaluateJavascript(
+"window.__nuetifyUpdateProgress && window.__nuetifyUpdateProgress($pct, '$statusStr', '$safeFile');",
+null
+)
+}
+}
+}
+reportProgress(0, "downloading")
+Thread {
+var downloading = true
+while (downloading) {
+val query = DownloadManager.Query().setFilterById(downloadId)
+val cursor = dm.query(query)
+if (cursor != null && cursor.moveToFirst()) {
+val statusIdx = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+val bytesIdx = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+val totalIdx = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+val status = if (statusIdx >= 0) cursor.getInt(statusIdx) else -1
+val bytesDownloaded = if (bytesIdx >= 0) cursor.getLong(bytesIdx) else 0L
+val bytesTotal = if (totalIdx >= 0) cursor.getLong(totalIdx) else 0L
+when (status) {
+DownloadManager.STATUS_SUCCESSFUL -> {
+downloading = false
+reportProgress(100, "installing")
+try {
+val apkUri = dm.getUriForDownloadedFile(downloadId)
+if (apkUri != null) {
+val installIntent = Intent(Intent.ACTION_VIEW).apply {
+setDataAndType(apkUri, "application/vnd.android.package-archive")
+addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+}
+runOnUiThread {
+try {
+startActivity(installIntent)
+} catch (_: Exception) {}
+}
+}
+} catch (_: Exception) {}
+try {
+Thread.sleep(1200L)
+} catch (_: InterruptedException) {}
+reportProgress(100, "completed")
+}
+DownloadManager.STATUS_FAILED -> {
+downloading = false
+reportProgress(0, "error")
+}
+else -> {
+val pct = if (bytesTotal > 0L) ((bytesDownloaded * 100L) / bytesTotal).toInt().coerceIn(0, 99) else 0
+reportProgress(pct, "downloading")
+}
+}
+} else {
+downloading = false
+}
+cursor?.close()
+if (downloading) {
+try {
+Thread.sleep(250L)
+} catch (_: InterruptedException) {
+downloading = false
+}
+}
+}
+}.start()
                 } catch (_: Exception) {
                     Toast.makeText(this@MainActivity, "Gagal mengunduh update", Toast.LENGTH_SHORT).show()
                 }
             }
         }
+@JavascriptInterface
+fun openDownloadsFolder() {
+runOnUiThread {
+try {
+val intent = Intent(DownloadManager.ACTION_VIEW_DOWNLOADS).apply {
+addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+}
+startActivity(intent)
+} catch (_: Exception) {
+try {
+val fallback = Intent(Intent.ACTION_VIEW).apply {
+setDataAndType(
+Uri.parse("content://com.android.externalstorage.documents/document/primary%3ADownload"),
+"vnd.android.document/directory"
+)
+addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+}
+startActivity(fallback)
+} catch (_: Exception) {
+Toast.makeText(this@MainActivity, "Silakan buka folder Download secara manual", Toast.LENGTH_SHORT).show()
+}
+}
+}
+}
 }
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
