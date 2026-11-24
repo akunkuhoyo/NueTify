@@ -72,7 +72,7 @@ function extractGoogleAvatar(user: User): string {
   return String(meta.avatar_url || meta.picture || '');
 }
 
-function resolveSafeDisplayName(authUser: User, storedName?: string | null): string { const meta = (authUser.user_metadata || {}) as Record<string, unknown>; const emailPrefix = (authUser.email || '').split('@')[0].trim().toLowerCase(); const metaName = String(meta.display_name || meta.full_name || meta.name || '').trim(); const candidate = (storedName || '').trim(); if (candidate && (candidate.toLowerCase() !== emailPrefix || !metaName)) { return candidate; } if (metaName) return metaName; return 'Pengguna NueTify'; }
+function resolveSafeDisplayName(authUser: User, storedName?: string | null): string { const meta = (authUser.user_metadata || {}) as Record<string, unknown>; const emailPrefix = (authUser.email || '').split('@')[0].trim().toLowerCase(); const customMetaName = String(meta.custom_display_name || '').trim(); const metaName = String(meta.display_name || meta.full_name || meta.name || '').trim(); const candidate = (storedName || '').trim(); if (candidate && candidate !== 'Pengguna NueTify' && (candidate.toLowerCase() !== emailPrefix || (!customMetaName && !metaName))) { return candidate; } if (customMetaName && customMetaName !== 'Pengguna NueTify') { return customMetaName; } if (metaName) return metaName; return 'Pengguna NueTify'; }
 function buildFallbackProfile(user: User): UserProfile {
   const meta = user.user_metadata || {};
   const provider = String(user.app_metadata?.provider || 'email');
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [cloudRevision, setCloudRevision] = useState(0);
 
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastPushedJsonRef = useRef<string>(''); const loadedUserIdRef = useRef<string | null>(null);
+  const lastPushedJsonRef = useRef<string>(''); const profileRef = useRef(null as UserProfile | null); useEffect(function() { profileRef.current = profile; }, [profile]); const loadedUserIdRef = useRef<string | null>(null);
 const checkUserBan = useCallback(async (authUserId: string) => { const supabase = getSupabaseClient(); if (!supabase) return; try { const { data } = await supabase.from('user_bans').select('reason, banned_until, is_active').eq('user_id', authUserId).maybeSingle(); if (data && data.is_active && (!data.banned_until || new Date(data.banned_until).getTime() > Date.now())) { setBanInfo({ reason: data.reason || '', banned_until: data.banned_until ?? null }); window.dispatchEvent(new CustomEvent('nuetify-force-stop')); } else { setBanInfo(null); } } catch {} }, []);
   
   const loadUserCloudState = useCallback(async (authUser: User) => {
@@ -137,7 +137,7 @@ loadedUserIdRef.current = authUser.id; void checkUserBan(authUser.id);
           email: authUser.email || '',
           provider: fallback.provider,
         };
-        setProfile(resolved);
+        profileRef.current = resolved; setProfile(resolved);
         resolvedDisplayName = resolved.display_name;
         resolvedAvatarUrl = resolved.avatar_url;
 if (profRow.display_name !== resolved.display_name || (!profRow.avatar_url && resolved.avatar_url)) { await supabase.from('user_profiles').upsert({ id: authUser.id, display_name: resolved.display_name, avatar_url: resolved.avatar_url, updated_at: new Date().toISOString() }, { onConflict: 'id' }); }
@@ -549,7 +549,7 @@ if (profRow.display_name !== resolved.display_name || (!profRow.avatar_url && re
       if (error) {
         return { ok: false, message: error.message };
       }
-      void supabase.auth.updateUser({ data: { custom_avatar_url: nextAvatar } }); setProfile((prev) =>
+      void supabase.auth.updateUser({ data: { custom_display_name: nextName, custom_avatar_url: nextAvatar } }); const updated: UserProfile = { ...(profileRef.current || { id: user.id, display_name: nextName, avatar_url: nextAvatar, email: user.email || '', provider: String(user.app_metadata?.provider || 'email') }), display_name: nextName, avatar_url: nextAvatar }; profileRef.current = updated; setProfile((prev) =>
         prev
           ? { ...prev, display_name: nextName, avatar_url: nextAvatar }
           : {
@@ -620,8 +620,8 @@ if (profRow.display_name !== resolved.display_name || (!profRow.avatar_url && re
           0
         );
         const { data: sessData } = await supabase.auth.getSession();
-          const token = sessData.session?.access_token;
-          if (token) { await fetch('/api/leaderboard', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ totalSeconds: Math.max(0, Math.floor(totalSeconds)), totalPlays, displayName: resolveSafeDisplayName(user, profile?.display_name), avatarUrl: profile?.avatar_url || String((user.user_metadata as Record<string, unknown> | undefined)?.custom_avatar_url || '') }) }).catch(() => {}); }
+          const activeProfile = profileRef.current; const token = sessData.session?.access_token;
+          if (token) { await fetch('/api/leaderboard', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ totalSeconds: Math.max(0, Math.floor(totalSeconds)), totalPlays, displayName: ((activeProfile && activeProfile.display_name && activeProfile.display_name !== 'Pengguna NueTify' && activeProfile.display_name) || resolveSafeDisplayName(user, activeProfile?.display_name)), avatarUrl: activeProfile?.avatar_url || String((user.user_metadata as Record<string, unknown> | undefined)?.custom_avatar_url || '') }) }).catch(() => {}); }
           void mirrorToFirebaseFirestore(user.id, 'music_data', payloadWithTs);
           setSyncStatus('synced');
         } catch {
