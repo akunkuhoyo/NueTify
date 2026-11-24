@@ -175,13 +175,14 @@ class MusicForegroundService : Service() {
             ACTION_UPDATE, null -> {
                 currentTitle = intent?.getStringExtra("title") ?: currentTitle
                 currentArtist = intent?.getStringExtra("artist") ?: currentArtist
+                val wasPlaying = currentIsPlaying
                 currentIsPlaying = intent?.getBooleanExtra("isPlaying", currentIsPlaying) ?: currentIsPlaying
                 currentShuffleOn = intent?.getBooleanExtra("shuffleOn", currentShuffleOn) ?: currentShuffleOn
                 currentRepeatMode = intent?.getStringExtra("repeatMode") ?: currentRepeatMode
                 currentPositionMs = intent?.getLongExtra("positionMs", currentPositionMs) ?: currentPositionMs
                 val newDur = intent?.getLongExtra("durationMs", currentDurationMs) ?: currentDurationMs
                 if (newDur > 0L) currentDurationMs = newDur
-                if (currentIsPlaying) requestAudioFocus()
+                if (currentIsPlaying && !wasPlaying && !hasAudioFocus) { requestAudioFocus() }
                 val newArtUrl = intent?.getStringExtra("artworkUrl") ?: ""
                 if (newArtUrl.isNotBlank() && newArtUrl != currentArtworkUrl) {
                     currentArtworkUrl = newArtUrl
