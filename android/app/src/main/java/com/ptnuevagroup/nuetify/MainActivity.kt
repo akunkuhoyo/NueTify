@@ -15,6 +15,10 @@ import android.media.AudioManager
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -25,6 +29,7 @@ import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -50,6 +55,10 @@ class BackgroundWebView(context: Context) : WebView(context) {
 
 class MainActivity : AppCompatActivity() {
 
+    private val appUrl = "https://nuetify.vercel.app/"
+    private var triedOfflineCacheFallback = false
+    private var showingFallbackScreen = false
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private lateinit var webView: BackgroundWebView
     private var equalizer: Equalizer? = null
     private var bassBoost: BassBoost? = null
@@ -89,6 +98,7 @@ class MainActivity : AppCompatActivity() {
             settings.mediaPlaybackRequiresUserGesture = false
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             settings.userAgentString = "${settings.userAgentString} NueTifyAndroid/1.3"
+            settings.cacheMode = if (isNetworkAvailable()) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(
                     view: WebView?,
@@ -105,6 +115,37 @@ class MainActivity : AppCompatActivity() {
                         return true
                     }
                     return false
+                }
+                override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    if (url?.startsWith("https://nuetify.vercel.app") == true) {
+                        triedOfflineCacheFallback = false
+                        showingFallbackScreen = false
+                    }
+                }
+
+                override fun onReceivedError(
+                    view: WebView?,
+                    request: WebResourceRequest?,
+                    error: WebResourceError?
+                ) {
+                    super.onReceivedError(view, request, error)
+                    if (request?.isForMainFrame == true) {
+                        if (!triedOfflineCacheFallback) {
+                            triedOfflineCacheFallback = true
+                            view?.settings?.cacheMode = WebSettings.LOAD_CACHE_ONLY
+                            view?.loadUrl(appUrl)
+                        } else {
+                            showingFallbackScreen = true
+                            view?.loadDataWithBaseURL(
+                                appUrl,
+                                buildOfflineShellHtml(),
+                                "text/html",
+                                "UTF-8",
+                                null
+                            )
+                        }
+                    }
                 }
             }
             webChromeClient = WebChromeClient()
@@ -144,6 +185,127 @@ class MainActivity : AppCompatActivity() {
         } else {
             webView.loadUrl("https://nuetify.vercel.app/")
         }
+        try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            val callback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    runOnUiThread {
+                        if (::webView.isInitialized) {
+                            webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
+                            if (showingFallbackScreen) {
+                                triedOfflineCacheFallback = false
+                                showingFallbackScreen = false
+                                webView.loadUrl(appUrl)
+                            }
+                        }
+                    }
+                }
+            }
+            networkCallback = callback
+            val request = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+            cm?.registerNetworkCallback(request, callback)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        return try {
+            val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val network = cm.activeNetwork ?: return false
+                val capabilities = cm.getNetworkCapabilities(network) ?: return false
+                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            } else {
+                @Suppress("DEPRECATION")
+                cm.activeNetworkInfo?.isConnected == true
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun buildOfflineShellHtml(): String {
+        return """
+            <!DOCTYPE html>
+            <html lang="id">
+            <head>
+                <meta charset="UTF-8" />
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+                <style>
+                    * { box-sizing: border-box; margin: 0; padding: 0; }
+                    html, body {
+                        width: 100%;
+                        height: 100%;
+                        background-color: #121212;
+                        color: #FFFFFF;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        text-align: center;
+                        padding: 24px;
+                    }
+                    .container {
+                        max-width: 340px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 16px;
+                    }
+                    .icon-wrap {
+                        width: 72px;
+                        height: 72px;
+                        border-radius: 50%;
+                        background: rgba(192, 192, 192, 0.12);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin-bottom: 4px;
+                    }
+                    h1 {
+                        font-size: 22px;
+                        font-weight: 700;
+                        color: #FFFFFF;
+                    }
+                    p {
+                        font-size: 14px;
+                        line-height: 1.5;
+                        color: #B3B3B3;
+                    }
+                    button {
+                        margin-top: 8px;
+                        background-color: #C0C0C0;
+                        color: #121212;
+                        border: none;
+                        border-radius: 9999px;
+                        padding: 12px 28px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                    }
+                    button:active {
+                        opacity: 0.85;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="icon-wrap">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#C0C0C0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 18V5l12-2v13"></path>
+                            <circle cx="6" cy="18" r="3"></circle>
+                            <circle cx="18" cy="16" r="3"></circle>
+                        </svg>
+                    </div>
+                    <h1>Mode Offline</h1>
+                    <p>Tidak ada koneksi internet saat ini. Sambungkan internet sekali untuk menyimpan data aplikasi, atau ketuk tombol di bawah.</p>
+                    <button type="button" onclick="window.NueTifyNative && window.NueTifyNative.retryConnection()">Coba Hubungkan Ulang</button>
+                </div>
+            </body>
+            </html>
+        """.trimIndent()
     }
 
     private fun launchExternalBrowser(uri: Uri) {
@@ -229,6 +391,14 @@ class MainActivity : AppCompatActivity() {
         try {equalizer?.enabled = false;  equalizer?.release() } catch (_: Exception) {}
         try {bassBoost?.enabled = false;  bassBoost?.release() } catch (_: Exception) {}
         try {loudnessEnhancer?.enabled = false;  loudnessEnhancer?.release() } catch (_: Exception) {}
+        try {
+            networkCallback?.let { callback ->
+                val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                cm?.unregisterNetworkCallback(callback)
+            }
+            networkCallback = null
+        } catch (_: Exception) {
+        }
         super.onDestroy()
     }
 
@@ -239,7 +409,21 @@ class MainActivity : AppCompatActivity() {
                 launchExternalBrowser(Uri.parse(url))
             }
         }
+        @JavascriptInterface
+        fun retryConnection() {
+            runOnUiThread {
+                triedOfflineCacheFallback = false
+                showingFallbackScreen = false
+                webView.settings.cacheMode = if (isNetworkAvailable()) {
+                    WebSettings.LOAD_DEFAULT
+                } else {
+                    WebSettings.LOAD_CACHE_ELSE_NETWORK
+                }
+                webView.loadUrl(appUrl)
+            }
+        }
 
+        
         @JavascriptInterface
         fun updateMediaState(
             title: String,
