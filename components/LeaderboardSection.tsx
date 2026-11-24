@@ -62,35 +62,19 @@ window.removeEventListener('popstate', onPopState);
       if (res.ok) {
         const data = (await res.json()) as { entries?: LeaderboardEntry[] };
         if (Array.isArray(data?.entries)) {
-          setEntries(data.entries);
+          setEntries(data.entries); try { localStorage.setItem('nuetify_leaderboard_cache_v1', JSON.stringify(data.entries)); } catch {}
           setLoading(false);
           return;
         }
       }
     } catch {
       // fallback ke query Supabase langsung
-    }
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      setLoading(false);
-      return;
-    }
-    try {
-      const { data } = await supabase
-        .from('listening_leaderboard')
-        .select('user_id, display_name, avatar_url, total_seconds, total_plays')
-        .gt('total_seconds', 0)
-        .order('total_seconds', { ascending: false })
-        .limit(50);
-      if (Array.isArray(data)) {
-        setEntries(data as LeaderboardEntry[]);
-      }
-    } catch {
+  
       // ignore fetch errors
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, []);  useEffect(() => { try { const raw = localStorage.getItem('nuetify_leaderboard_cache_v1'); if (raw) { const parsed = JSON.parse(raw); if (Array.isArray(parsed) && parsed.length > 0) { setEntries((prev) => (prev.length > 0 ? prev : parsed)); setLoading(false); } } } catch {} }, []); useEffect(() => { let timer: ReturnType<typeof setTimeout> | null = null; const onVisibilityChange = () => { if (document.visibilityState === 'visible') { if (timer) clearTimeout(timer); timer = setTimeout(() => { void fetchTop50(); }, 650); } }; document.addEventListener('visibilitychange', onVisibilityChange); return () => { document.removeEventListener('visibilitychange', onVisibilityChange); if (timer) clearTimeout(timer); }; }, [fetchTop50]);
 
   useEffect(() => {
     const supabase = getSupabaseClient();
