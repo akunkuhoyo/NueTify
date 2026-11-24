@@ -170,7 +170,7 @@ export function HomeView() {
   } = useMusic();
   const {user,  profile } = useAuth();
   const [homeData, setHomeData] = useState<HomePayload | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true); useEffect(() => { try { const raw = localStorage.getItem('nuetify_home_cache_v1'); if (raw) { const parsed = JSON.parse(raw) as HomePayload; if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) { setHomeData((prev) => prev ?? parsed); setLoading(false); } } } catch {} }, []);
   const [selectedMood, setSelectedMood] = useState<string>('all');
   const [moodTracks, setMoodTracks] = useState<Track[] | null>(null);
   const [moodLoading, setMoodLoading] = useState(false);
@@ -204,7 +204,7 @@ export function HomeView() {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as HomePayload;
-      setHomeData(data);
+      if (data && Object.keys(data).length > 0) { setHomeData(data); try { localStorage.setItem('nuetify_home_cache_v1', JSON.stringify(data)); } catch {} }
     } catch {
       // keep existing or seeded fallback
     } finally {
@@ -226,7 +226,7 @@ export function HomeView() {
         if (!res.ok) return;
         const data = (await res.json()) as HomePayload;
         if (!cancelled) {
-          setHomeData(data);
+          if (data && Object.keys(data).length > 0) { setHomeData(data); try { localStorage.setItem('nuetify_home_cache_v1', JSON.stringify(data)); } catch {} }
         }
       } catch {
         // fallback gracefully
