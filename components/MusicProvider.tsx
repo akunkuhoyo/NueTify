@@ -241,7 +241,7 @@ export function MusicProvider({ children }: { children: React.ReactNode }) {
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [settings, setSettings] = useState<PlayerSettings>({ ...DEFAULT_SETTINGS, theme: 'dark', dockStyle: 'default' });
   const [playlistPickerTrack, setPlaylistPickerTrack] = useState<Track | null>(null);
-  const { user, cloudMusicData, cloudRevision, syncMusicData } = useAuth();
+  const { user, cloudMusicData, cloudRevision, syncMusicData, syncStatus } = useAuth();
   const skipCloudPushRef = useRef(false);
   useEffect(() => {
 if (cloudRevision > 0 && cloudMusicData) {
@@ -257,9 +257,9 @@ return () => clearTimeout(timer);
 } else if (user && cloudRevision > 0 && cloudMusicData === null) { skipCloudPushRef.current = true; setHistory([]); setLikedTracks([]); setPlaylists([]); setSavedCollection([]); setSearchHistory([]); const timer = setTimeout(() => { skipCloudPushRef.current = false; }, 900); return () => clearTimeout(timer); }
 }, [user, cloudRevision, cloudMusicData]);
   useEffect(() => {
-if (!user || !hydrated || skipCloudPushRef.current) return;
+if (!user || !hydrated || skipCloudPushRef.current || syncStatus !== 'synced') return;
 syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedCollection });
-}, [user, hydrated, settings, playlists, likedTracks, history, searchHistory, savedCollection, syncMusicData]);
+}, [user, hydrated, settings, playlists, likedTracks, history, searchHistory, savedCollection, syncMusicData, syncStatus]);
     const latestLibraryRef = useRef({ settings, playlists, likedTracks, history, searchHistory, savedCollection });
   latestLibraryRef.current = { settings, playlists, likedTracks, history, searchHistory, savedCollection };
   const latestSyncMetaRef = useRef({ user, hydrated, syncMusicData });
