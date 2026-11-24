@@ -220,6 +220,7 @@ const query = (searchParams.get('q') || '').trim();
 const type = (searchParams.get('type') || 'all').toLowerCase();
 const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1);
 const taste = (searchParams.get('taste') || '').trim().toLowerCase();
+const seedId = (searchParams.get('seedId') || '').trim();
 const tasteTokens = taste
 .split(',')
 .map((s) => s.trim())
@@ -308,13 +309,23 @@ hasMore: finalTracks.length > 0,
 });
 }
 
-const suffixes = ['', ' official', ' audio', ' remix', ' cover', ' live'];
-const suffix = suffixes[(page - 1) % suffixes.length];
-const variedQuery = `${query}${suffix}`.trim();
-const [songs, videos] = await Promise.all([
-yt.searchSongs(variedQuery),
+const PAGE_MODIFIERS = [
+'remix', 'slowed reverb', 'dj', 'full bass', 'cover', 'live', 'acoustic',
+'lyrics', 'official', 'sped up', 'koplo', 'viral', 'tiktok', 'mashup',
+'breakbeat', 'slow bass', 'nightcore', 'instrumental', 'terbaru', 'populer',
+'2026', '2025', 'version', 'mix',
+];
+const mod = PAGE_MODIFIERS[(page - 2) % PAGE_MODIFIERS.length];
+const variedQuery = `${query} ${mod}`.trim();
+const [videosRes, songsRes, upNextsRes] = await Promise.allSettled([
 yt.searchVideos(variedQuery),
+yt.searchSongs(variedQuery),
+seedId ? yt.getUpNexts(seedId) : Promise.resolve([]),
 ]);
+
+const videos = videosRes.status === 'fulfilled' && Array.isArray(videosRes.value) ? videosRes.value : [];
+const songs = songsRes.status === 'fulfilled' && Array.isArray(songsRes.value) ? songsRes.value : [];
+const upNexts = upNextsRes.status === 'fulfilled' && Array.isArray(upNextsRes.value) ? upNextsRes.value : [];
 
 const songTracks: TrackCandidate[] = songs.map((s, idx) => ({
 ...normalizeSong(s),
@@ -326,32 +337,43 @@ const videoTracks: TrackCandidate[] = videos.map((v, idx) => ({
 kind: 'TRACK' as const,
 sourceIndex: idx,
 }));
+const upNextTracks: TrackCandidate[] = upNexts.map((s, idx) => ({
+...normalizeSong(s),
+kind: 'TRACK' as const,
+sourceIndex: idx,
+}));
 
-// const deduped = dedupTracks([...songTracks, ...videoTracks]);
-const deduped = dedupTracks(requestedGroups.length > 0 ? [...videoTracks, ...songTracks] : [...songTracks, ...videoTracks]); // const meaningful = deduped.filter((t) => hasMeaningfulTokenMatch(t, query));
-const meaningful = deduped.filter((t) => hasMeaningfulTokenMatch(t, query));
-  const baseTracks = meaningful.length > 0 ? meaningful : deduped;
+const primaryOrdered = requestedGroups.length > 0
+? [...videoTracks, ...songTracks]
+: [...songTracks, ...videoTracks];
+const primaryDeduped = dedupTracks(primaryOrdered);
+const meaningful = primaryDeduped.filter((t) => hasMeaningfulTokenMatch(t, query));
+const basePrimary = meaningful.length > 0 ? meaningful : primaryDeduped;
 
-let finalTracks = baseTracks;
+let sortedPrimary = basePrimary;
 if (requestedGroups.length > 0) {
-const strictMatched = baseTracks.filter((t) =>
+const strictMatched = basePrimary.filter((t) =>
 matchesRequestedModifiers(t, requestedGroups)
 );
-if (strictMatched.length >= 1) { // if (strictMatched.length >= 3) {
-finalTracks = strictMatched;
+if (strictMatched.length >= 1) {
+sortedPrimary = strictMatched;
 }
 }
 
-finalTracks.sort(
+sortedPrimary.sort(
 (a, b) =>
 scoreTrackRelevance(b, query, tasteTokens) -
 scoreTrackRelevance(a, query, tasteTokens)
 );
-if (requestedGroups.length === 0) { finalTracks = balanceOriginalAndVariants(finalTracks); }
-  
+if (requestedGroups.length === 0) {
+sortedPrimary = balanceOriginalAndVariants(sortedPrimary);
+}
+
+const finalTracks = dedupTracks([...sortedPrimary, ...upNextTracks]);
+
 return NextResponse.json({
-results: finalTracks.slice(0, 20),
-hasMore: page < 5 && finalTracks.length > 0,
+results: finalTracks,
+hasMore: true,
 });
 }
 
