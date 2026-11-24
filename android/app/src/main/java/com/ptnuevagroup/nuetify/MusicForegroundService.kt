@@ -59,6 +59,20 @@ class MusicForegroundService : Service() {
     private var focusRequest: AudioFocusRequest? = null
     private val executor = Executors.newSingleThreadExecutor()
     private var hasAudioFocus = false
+    private val audioFocusChangeListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                hasAudioFocus = false
+                MainActivity.onExternalAudioFocusLost()
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                hasAudioFocus = true
+                MainActivity.onExternalAudioFocusGained()
+            }
+        }
+    }
     private val updateScheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
     private var currentTitle = "NueTify"
     private var currentArtist = "PT Nueva Group"
@@ -128,13 +142,13 @@ class MusicForegroundService : Service() {
                 .build()
             val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                 .setAudioAttributes(attrs)
-                .setOnAudioFocusChangeListener { }
+                .setOnAudioFocusChangeListener(audioFocusChangeListener) 
                 .build()
             focusRequest = req
             am.requestAudioFocus(req)
         } else {
             @Suppress("DEPRECATION")
-            am.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
+            am.requestAudioFocus(audioFocusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN)
         }; hasAudioFocus = true
     }
 
@@ -406,6 +420,7 @@ class MusicForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        MainActivity.onExternalAudioFocusLost()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
         }
