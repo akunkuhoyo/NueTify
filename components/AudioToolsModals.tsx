@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   Check,
@@ -34,7 +34,7 @@ export function EqualizerSheet({
 }) {
   const { settings, updateSettings, showToast } = useMusic();
 
-  const bands =
+  const [draftBands, setDraftBands] = useState<number[]>(() => (Array.isArray(settings.equalizerBands) && settings.equalizerBands.length === 5 ? [...settings.equalizerBands] : [0, 0, 0, 0, 0])); const [draftPreset, setDraftPreset] = useState(settings.equalizerPreset ?? 'FLAT'); const [draftBassBoost, setDraftBassBoost] = useState(Boolean(settings.bassBoostEnabled)); const isDraggingRef = useRef(false); const draftBandsRef = useRef<number[]>(draftBands); draftBandsRef.current = draftBands; const draftBassRef = useRef<boolean>(draftBassBoost); draftBassRef.current = draftBassBoost; const nativeTimerRef = useRef<number | null>(null); const commitTimerRef = useRef<number | null>(null); useEffect(() => { if (open && !isDraggingRef.current) { const nextBands = Array.isArray(settings.equalizerBands) && settings.equalizerBands.length === 5 ? [...settings.equalizerBands] : [0, 0, 0, 0, 0]; const nextPreset = settings.equalizerPreset ?? 'FLAT'; const nextBass = Boolean(settings.bassBoostEnabled); draftBandsRef.current = nextBands; draftBassRef.current = nextBass; setDraftBands(nextBands); setDraftPreset(nextPreset); setDraftBassBoost(nextBass); } return () => { if (nativeTimerRef.current) { window.clearTimeout(nativeTimerRef.current); nativeTimerRef.current = null; } if (commitTimerRef.current) { window.clearTimeout(commitTimerRef.current); commitTimerRef.current = null; } }; }, [open, settings.equalizerBands, settings.equalizerPreset, settings.bassBoostEnabled]); const pushNativePreview = (nextBands: number[], nextBass: boolean) => { if (nativeTimerRef.current) { window.clearTimeout(nativeTimerRef.current); } nativeTimerRef.current = window.setTimeout(() => { nativeTimerRef.current = null; if (typeof window !== 'undefined') { window.dispatchEvent(new CustomEvent('nuetify:eq-preview', { detail: { bands: [...nextBands], bassBoost: nextBass } })); } }, 80); }; const commitEqualizer = (nextBands: number[], nextPreset: EqualizerPreset, nextBass: boolean) => { updateSettings({ equalizerPreset: nextPreset, equalizerBands: [...nextBands], bassBoostEnabled: nextBass }); }; const bands = draftBands; const activePreset = draftPreset; const bassBoost = draftBassBoost; const selectPreset = (presetKey: Exclude<EqualizerPreset, 'CUSTOM'>) => { const preset = EQUALIZER_PRESETS[presetKey]; const nextBands = [...preset.bands]; const nextBass = presetKey === 'BASS_BOOST' ? true : draftBassRef.current; draftBandsRef.current = nextBands; draftBassRef.current = nextBass; setDraftBands(nextBands); setDraftPreset(presetKey); setDraftBassBoost(nextBass); pushNativePreview(nextBands, nextBass); commitEqualizer(nextBands, presetKey, nextBass); showToast(`Equalizer: ${preset.label}`); }; const handleBandChange = (index: number, rawValue: number) => { const clamped = Math.max(-12, Math.min(25, Math.round(rawValue))); const next = [...draftBandsRef.current]; next[index] = clamped; draftBandsRef.current = next; setDraftBands(next); setDraftPreset('CUSTOM'); pushNativePreview(next, draftBassRef.current); if (commitTimerRef.current) { window.clearTimeout(commitTimerRef.current); } commitTimerRef.current = window.setTimeout(() => { commitTimerRef.current = null; commitEqualizer(next, 'CUSTOM', draftBassRef.current); }, 350); }; const handleBandRelease = () => { isDraggingRef.current = false; if (commitTimerRef.current) { window.clearTimeout(commitTimerRef.current); commitTimerRef.current = null; } commitEqualizer(draftBandsRef.current, 'CUSTOM', draftBassRef.current); }; const handleReset = () => { const resetBands = [0, 0, 0, 0, 0]; draftBandsRef.current = resetBands; draftBassRef.current = false; setDraftBands(resetBands); setDraftPreset('FLAT'); setDraftBassBoost(false); pushNativePreview(resetBands, false); commitEqualizer(resetBands, 'FLAT', false); showToast('Equalizer reset'); }; const handleToggleBassBoost = () => { const nextBass = !draftBassRef.current; draftBassRef.current = nextBass; setDraftBassBoost(nextBass); pushNativePreview(draftBandsRef.current, nextBass); commitEqualizer(draftBandsRef.current, draftPreset, nextBass); }; /*
     Array.isArray(settings.equalizerBands) && settings.equalizerBands.length === 5
       ? settings.equalizerBands
       : [0, 0, 0, 0, 0];
@@ -81,7 +81,7 @@ export function EqualizerSheet({
           aria-modal="true"
           aria-label="Audio Equalizer"
           data-testid="equalizer-sheet"
-          className="fixed inset-0 z-[75] bg-black/70 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-5"
+          className="fixed inset-0 z-[75] bg-black/75 flex items-end sm:items-center justify-center p-0 sm:p-5"
           onClick={onClose}
         >
           <motion.div
@@ -90,7 +90,7 @@ export function EqualizerSheet({
             exit={{ y: 40, opacity: 0.9 }}
             transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg max-h-[90vh] rounded-t-[28px] sm:rounded-[28px] bg-[var(--m3-surface)] border border-[var(--m3-border)] overflow-hidden flex flex-col shadow-2xl"
+            className="w-full max-w-lg max-h-[90vh] rounded-t-[28px] sm:rounded-[28px] bg-[#181818] border border-[var(--m3-border)] overflow-hidden flex flex-col shadow-2xl"
           >
             {/* Header */}
             <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-black/5 dark:border-white/[0.08] shrink-0">
@@ -211,10 +211,10 @@ export function EqualizerSheet({
                           min={-12}
                           max={25}
                           step={1}
-                          value={val}
+                          value={draftBands[idx] ?? 0}
                           onChange={(e) => handleBandChange(idx, Number(e.target.value))}
                           aria-label={`${freq} band gain`}
-                          className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-black/10 dark:bg-white/15 accent-[var(--m3-primary)]"
+                          style={{ touchAction: 'none' }} onPointerDown={(e) => { e.stopPropagation(); isDraggingRef.current = true; }} onTouchStart={(e) => { e.stopPropagation(); isDraggingRef.current = true; }} onPointerUp={handleBandRelease} onTouchEnd={handleBandRelease} onPointerCancel={handleBandRelease} className="w-full h-1.5 rounded-full appearance-none cursor-pointer touch-none bg-black/10 dark:bg-white/15 accent-[var(--m3-primary)]"
                         />
                       </div>
                     );
@@ -240,7 +240,7 @@ export function EqualizerSheet({
                   role="switch"
                   aria-checked={bassBoost}
                   aria-label="Toggle Sub-Bass Enhancement"
-                  onClick={() => updateSettings({ bassBoostEnabled: !bassBoost })}
+                  onClick={handleToggleBassBoost}
                   className={cn(
                     'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition-colors',
                     bassBoost
