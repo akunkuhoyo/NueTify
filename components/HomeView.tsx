@@ -15,7 +15,6 @@ import {
   ListMusic,
   Play,
   Radio,
-  RefreshCw,
   Search,
   Sparkles,
   User,
@@ -493,15 +492,6 @@ export function HomeView() {
               className="w-10 h-10 rounded-full metro-surface flex items-center justify-center hover:brightness-110 transition-all"
             >
               <Search className="w-[18px] h-[18px]" />
-            </button>
-            <button
-              type="button"
-              onClick={() => void refreshHome()}
-              disabled={loading}
-              aria-label="Refresh home feed"
-              className="w-10 h-10 rounded-full metro-surface flex items-center justify-center hover:brightness-110 transition-all disabled:opacity-50"
-            >
-              <RefreshCw className={`w-[17px] h-[17px] ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>
