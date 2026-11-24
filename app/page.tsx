@@ -28,7 +28,7 @@ function SonoraShell() {
     currentTrack,
     settings,
     setActiveTab, openDetail, setIsNowPlayingOpen, pause } = useMusic();
-  useEffect(() => { (window as unknown as { __nuetifyHandleBack?: () => boolean }).__nuetifyHandleBack = () => { if (isNowPlayingOpen) { setIsNowPlayingOpen(false); return true; } if (detailTarget) { openDetail(null); return true; } if (activeTab !== 'home') { setActiveTab('home'); return true; } return false; }; return () => { delete (window as unknown as { __nuetifyHandleBack?: () => boolean }).__nuetifyHandleBack; }; }, [isNowPlayingOpen, setIsNowPlayingOpen, detailTarget, openDetail, activeTab, setActiveTab]);
+  useEffect(() => { (window as unknown as { __nuetifyHandleBack?: () => boolean }).__nuetifyHandleBack = () => { const closeLb = (window as unknown as { __nuetifyCloseLeaderboard?: () => boolean }).__nuetifyCloseLeaderboard; if (closeLb && closeLb()) return true; if (isNowPlayingOpen) { setIsNowPlayingOpen(false); return true; } if (detailTarget) { openDetail(null); return true; } if (activeTab !== 'home') { setActiveTab('home'); return true; } return false; }; return () => { delete (window as unknown as { __nuetifyHandleBack?: () => boolean }).__nuetifyHandleBack; }; }, [isNowPlayingOpen, setIsNowPlayingOpen, detailTarget, openDetail, activeTab, setActiveTab]);
   useEffect(() => { const handleForceStop = () => { pause(); setIsNowPlayingOpen(false); }; window.addEventListener('nuetify-force-stop', handleForceStop); return () => { window.removeEventListener('nuetify-force-stop', handleForceStop); }; }, [pause, setIsNowPlayingOpen]);
   
   return (
