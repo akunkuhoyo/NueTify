@@ -159,7 +159,7 @@ class MainActivity : AppCompatActivity() {
 
         MusicForegroundService.onActionListener = { action ->
             runOnUiThread {
-                webView.onResume()
+                if (action != "REPEAT" && action != "SHUFFLE") webView.onResume()
                 webView.resumeTimers()
                 webView.evaluateJavascript(
                     "window.dispatchEvent(new CustomEvent('nuetify-native-action', { detail: '$action' }));",
