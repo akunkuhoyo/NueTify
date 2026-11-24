@@ -512,7 +512,7 @@ setBroadcastingUpdate(false);
   <span>{broadcastingUpdate ? 'Mengirim...' : 'Kirim Ulang Pop-Up Update ke Semua User'}</span>
   </button>
   </div>
-            </div
+            </div>
           </section>
         )}
 
