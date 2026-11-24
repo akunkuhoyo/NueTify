@@ -3,7 +3,7 @@ import { getYTMusicClient, normalizeSong } from '@/lib/server/ytmusic';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-
+export const maxDuration = 60;
 function extractSpotifyPlaylistId(input: string): string | null {
   const trimmed = input.trim();
   if (!trimmed) return null;
@@ -20,7 +20,9 @@ export async function GET(req: NextRequest) {
   try {
     const rawUrl = req.nextUrl.searchParams.get('url') || req.nextUrl.searchParams.get('id') || '';
     const gl = req.nextUrl.searchParams.get('gl') || 'ID';
-
+    const offset = Math.max(0, parseInt(req.nextUrl.searchParams.get('offset') || '0', 10) || 0);
+    const limit = Math.min(25, Math.max(1, parseInt(req.nextUrl.searchParams.get('limit') || '20', 10) || 20));
+    
     const playlistId = extractSpotifyPlaylistId(rawUrl);
     if (!playlistId) {
       return NextResponse.json(
@@ -73,14 +75,15 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const limitedTracks = rawTracks.slice(0, 35);
+    const cappedTracks = rawTracks.slice(0, 100);
+    const chunk = cappedTracks.slice(offset, offset + limit);
     const yt = await getYTMusicClient({ gl, hl: 'en' });
     const tracks: ReturnType<typeof normalizeSong>[] = [];
     const seenIds = new Set<string>();
 
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < limitedTracks.length; i += BATCH_SIZE) {
-      const batch = limitedTracks.slice(i, i + BATCH_SIZE);
+    const BATCH_SIZE = 10;
+    for (let i = 0; i < chunk.length; i += BATCH_SIZE) {
+      const batch = chunk.slice(i, i + BATCH_SIZE);
       const results = await Promise.allSettled(
         batch.map(async (t: { title?: string; subtitle?: string }) => {
           const query = `${t.title || ''} ${t.subtitle || ''}`.trim();
@@ -88,6 +91,10 @@ export async function GET(req: NextRequest) {
           const songs = await yt.searchSongs(query);
           if (Array.isArray(songs) && songs.length > 0) {
             return normalizeSong(songs[0]);
+          }
+        const videos = await yt.searchVideos(query);
+          if (Array.isArray(videos) && videos.length > 0) {
+            return normalizeSong(videos[0]);
           }
           return null;
         })
@@ -107,7 +114,11 @@ export async function GET(req: NextRequest) {
       title,
       thumbnail,
       tracks,
-      totalSourceTracks: rawTracks.length,
+      offset,
+      limit,
+      totalSourceTracks: cappedTracks.length,
+      hasMore: offset + limit < cappedTracks.length,
+      nextOffset: offset + limit,
     });
   } catch (error) {
     console.error('Spotify import error:', error);
