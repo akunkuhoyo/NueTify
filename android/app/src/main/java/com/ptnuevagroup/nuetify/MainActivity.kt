@@ -415,9 +415,9 @@ null
 }
 }
 }
-reportProgress(0, "downloading")
+reportProgress(5, "downloading")
 Thread {
-var downloading = true
+var downloading = true; var pendingPct = 4
 while (downloading) {
 val query = DownloadManager.Query().setFilterById(downloadId)
 val cursor = dm.query(query)
@@ -456,7 +456,7 @@ downloading = false
 reportProgress(0, "error")
 }
 else -> {
-val pct = if (bytesTotal > 0L) ((bytesDownloaded * 100L) / bytesTotal).toInt().coerceIn(0, 99) else 0
+val pct = when { bytesTotal > 0L -> ((bytesDownloaded * 100L) / bytesTotal).toInt().coerceIn(5, 99); bytesDownloaded > 0L -> ((bytesDownloaded * 100L) / 2_800_000L).toInt().coerceIn(8, 95); else -> { pendingPct = (pendingPct + 1).coerceAtMost(20); pendingPct } }
 reportProgress(pct, "downloading")
 }
 }
