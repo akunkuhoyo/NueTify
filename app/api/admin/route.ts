@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
     reason?: string;
   };
 
-  if (body.action === 'toggle_maintenance') {
+  if (body.action === 'broadcast_app_update') { const message = (body.message || '').trim() || 'Pembaruan baru NueTify tersedia! Silakan update aplikasi sekarang.'; const payload = { broadcast_id: crypto.randomUUID(), message, broadcast_at: new Date().toISOString(), triggered_by: auth.user.email }; const { error } = await userClient.from('app_config').upsert({ key: 'app_update_broadcast', value: payload, updated_at: new Date().toISOString() }, { onConflict: 'key' }); if (error) { return NextResponse.json({ ok: false, error: error.message }, { status: 400 }); } await userClient.from('admin_audit_logs').insert({ admin_email: user.email || ADMIN_EMAIL, action: 'BROADCAST_APP_UPDATE', details: { message, broadcast_id: payload.broadcast_id } }); return NextResponse.json({ ok: true, broadcast: payload }); } if (body.action === 'toggle_maintenance') {
     const enabled = Boolean(body.enabled);
     const message =
       (body.message || '').trim() ||
