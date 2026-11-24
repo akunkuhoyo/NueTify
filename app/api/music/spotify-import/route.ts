@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getYTMusicClient, normalizeSong } from '@/lib/server/ytmusic';
+import { getYTMusicClient, normalizeSong, normalizeVideo } from '@/lib/server/ytmusic';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
           }
         const videos = await yt.searchVideos(query);
           if (Array.isArray(videos) && videos.length > 0) {
-            return normalizeSong(videos[0]);
+            return normalizeVideo(videos[0]);
           }
           return null;
         })
