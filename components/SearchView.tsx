@@ -206,7 +206,7 @@ export function SearchView() {
     [results?.tracks, sortMode]
   );
 
-  const executeSearch = useCallback(
+  const tasteHint = useMemo(() => { const counts = new Map<string, number>(); for (const track of history) { const artist = track.artist?.trim(); if (!artist || artist.toLowerCase() === 'unknown artist') continue; counts.set(artist, (counts.get(artist) ?? 0) + 1); } return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([artist]) => artist).join(','); }, [history]); const executeSearch = useCallback(
     async (q: string, tab: SearchTab = activeTab) => {
       const trimmed = q.trim();
       if (!trimmed) return;
@@ -227,7 +227,7 @@ export function SearchView() {
           headers['x-yt-cookie'] = settings.ytCookie.trim();
         }
         const res = await fetch(
-          `/api/music/search?q=${encodeURIComponent(trimmed)}&type=${tab}&gl=${settings.region}`,
+          `/api/music/search?q=${encodeURIComponent(trimmed)}&type=${tab}&gl=${settings.region}${tasteHint ? `&taste=${encodeURIComponent(tasteHint)}` : ''}`,
           { headers }
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -243,7 +243,7 @@ export function SearchView() {
         const rawTracks = items.filter(
           (i): i is Track & { kind: 'TRACK' } => i.kind === 'TRACK'
         );
-        const filteredTracks = settings.hideVideoSongs
+        const hasStyleModifier = /\b(dj|remix|rmx|slowed|reverb|sped|nightcore|koplo|dangdut|phonk|jj|slowbass|jedag|bass)\b/i.test(trimmed); const filteredTracks = (settings.hideVideoSongs && !hasStyleModifier)
           ? rawTracks.filter((t) => t.type !== 'VIDEO')
           : rawTracks;
         setResults({
@@ -264,7 +264,7 @@ export function SearchView() {
         setLoading(false);
       }
     },
-    [activeTab, addSearchHistory, settings.hideVideoSongs, settings.region, settings.ytCookie]
+    [activeTab, addSearchHistory, settings.hideVideoSongs, settings.region, settings.ytCookie, tasteHint]
   );
   const loadMoreSongs = useCallback(async () => {
     if (visibleSongs < sortedOnlineTracks.length) {
@@ -288,7 +288,7 @@ export function SearchView() {
         headers['x-yt-cookie'] = settings.ytCookie.trim();
       }
       const res = await fetch(
-        `/api/music/search?q=${encodeURIComponent(submittedQuery)}&type=${activeTab}&gl=${settings.region}&page=${nextPage}`,
+        `/api/music/search?q=${encodeURIComponent(submittedQuery)}&type=${activeTab}&gl=${settings.region}&page=${nextPage}${tasteHint ? `&taste=${encodeURIComponent(tasteHint)}` : ''}`,
         { headers }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -299,7 +299,7 @@ export function SearchView() {
       const rawTracks = (data.results || []).filter(
         (i): i is Track & { kind: 'TRACK' } => i.kind === 'TRACK'
       );
-      const filteredTracks = settings.hideVideoSongs
+      const hasStyleModifier = /\b(dj|remix|rmx|slowed|reverb|sped|nightcore|koplo|dangdut|phonk|jj|slowbass|jedag|bass)\b/i.test(submittedQuery); const filteredTracks = (settings.hideVideoSongs && !hasStyleModifier)
         ? rawTracks.filter((t) => t.type !== 'VIDEO')
         : rawTracks;
 
@@ -330,7 +330,7 @@ export function SearchView() {
     sortedOnlineTracks.length,
     hasMoreRemote,
     loadingMore,
-    submittedQuery,
+    submittedQuery, tasteHint,
     activeTab,
     searchPage,
     settings.ytCookie,
