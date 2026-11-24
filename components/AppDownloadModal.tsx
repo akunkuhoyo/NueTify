@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Download, FolderOpen, Sparkles, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Download, FolderOpen, X } from 'lucide-react';
 import { getSupabaseClient } from '@/lib/cloud/supabaseClient';
 
 interface ReleaseInfo {
@@ -58,7 +58,8 @@ export function AppDownloadModal() {
   const [downloadState, setDownloadState] = useState<DownloadState>('idle');
   const [downloadPercent, setDownloadPercent] = useState<number>(0);
   const [downloadFileName, setDownloadFileName] = useState<string>('');
-
+const nativeProgressRef = useRef(false);
+  const fallbackTimerRef = useRef<number | null>(null);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const ua = navigator.userAgent || '';
@@ -81,7 +82,8 @@ export function AppDownloadModal() {
       status: string,
       fileName?: string,
     ) => {
-      if (cancelled) return;
+      if (cancelled) return; nativeProgressRef.current = true;
+      if (fallbackTimerRef.current !== null) { window.clearInterval(fallbackTimerRef.current); fallbackTimerRef.current = null; }
       const safePct = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
       setDownloadPercent(safePct);
       if (
@@ -197,7 +199,7 @@ export function AppDownloadModal() {
     }
 
     return () => {
-      cancelled = true;
+      cancelled = true; if (fallbackTimerRef.current !== null) { window.clearInterval(fallbackTimerRef.current); fallbackTimerRef.current = null; }
       window.removeEventListener('nuetify-check-update', onManualCheck);
       delete (window as unknown as Record<string, unknown>).__nuetifyUpdateProgress;
       if (channel && supabase) {
@@ -221,11 +223,11 @@ export function AppDownloadModal() {
       }
     ).NueTifyNative;
 
-    setDownloadState('downloading');
-    setDownloadPercent(0);
+    nativeProgressRef.current = false; if (fallbackTimerRef.current !== null) { window.clearInterval(fallbackTimerRef.current); fallbackTimerRef.current = null; } setDownloadState('downloading');
+    setDownloadPercent(5);
 
     if (native?.downloadAndInstallApk) {
-      native.downloadAndInstallApk(release.downloadUrl, release.version);
+      native.downloadAndInstallApk(release.downloadUrl, release.version); let pct = 5; fallbackTimerRef.current = window.setInterval(() => { if (nativeProgressRef.current) { if (fallbackTimerRef.current !== null) { window.clearInterval(fallbackTimerRef.current); fallbackTimerRef.current = null; } return; } if (pct >= 95) { if (fallbackTimerRef.current !== null) { window.clearInterval(fallbackTimerRef.current); fallbackTimerRef.current = null; } setDownloadPercent(100); setDownloadState('completed'); return; } pct = Math.min(95, pct + 6); setDownloadPercent(pct); }, 450);
     } else {
       window.open(release.downloadUrl, '_blank', 'noopener,noreferrer');
     }
@@ -257,9 +259,7 @@ export function AppDownloadModal() {
         </button>
 
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-11 h-11 rounded-xl bg-[#C0C0C0]/15 border border-[#C0C0C0]/30 flex items-center justify-center shrink-0">
-            <Sparkles className="w-5 h-5 text-[#C0C0C0]" />
-          </div>
+    <img src="/icon" alt="NueTify" className="w-11 h-11 rounded-2xl object-cover border border-[#C0C0C0]/25 shrink-0" />
           <div>
             <h2 className="text-lg font-bold tracking-tight">Pembaruan Aplikasi NueTify</h2>
             <p className="text-xs text-[#A7A7A7]">
