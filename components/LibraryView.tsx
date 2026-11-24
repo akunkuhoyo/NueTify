@@ -168,7 +168,7 @@ export function LibraryView() {
         createPlaylist(
           data.title || `Imported (${pid.slice(0, 8)})`,
           'Imported from YouTube Music',
-          data.tracks
+          data.tracks.slice(0, 100)
         );
         setImportInput('');
       } else {
@@ -188,33 +188,15 @@ export function LibraryView() {
     setImportingSpotify(true);
     setSpotifyImportMsg(null);
     try {
-      const res = await fetch(
-        `/api/music/spotify-import?url=${encodeURIComponent(raw)}&gl=${settings.region}`
-      );
-      const data = (await res.json()) as {
-        title?: string;
-        tracks?: Parameters<typeof createPlaylist>[2];
-        totalSourceTracks?: number;
-        error?: string;
-      };
-      if (!res.ok) {
-        throw new Error(data.error || 'Gagal mengimpor playlist Spotify.');
-      }
-      if (data.tracks && data.tracks.length > 0) {
-        createPlaylist(
-          data.title || 'Spotify Playlist',
-          'Imported from Spotify',
-          data.tracks
-        );
-        const msg = `Berhasil mengimpor "${data.title || 'Spotify Playlist'}" (${data.tracks.length}/${data.totalSourceTracks ?? data.tracks.length} lagu).`;
-        setSpotifyImportMsg(msg);
-        showToast(msg);
-        setSpotifyUrl('');
-      } else {
-        const msg = 'Tidak ada lagu yang cocok ditemukan dari playlist Spotify tersebut.';
-        setSpotifyImportMsg(msg);
-        showToast(msg);
-      }
+     type ImportedTrack = NonNullable<Parameters<typeof createPlaylist>[2]>[number];
+      let offset = 0; let hasMore = true; let playlistTitle = 'Spotify Playlist'; let totalSourceTracks = 0;
+      const collected: ImportedTrack[] = []; const seenIds = new Set<string>();
+      while (hasMore && collected.length < 100) {
+       const res = await fetch(`/api/music/spotify-import?url=${encodeURIComponent(raw)}&gl=${settings.region}&offset=${offset}&limit=20`);
+       const data = (await res.json()) as { title?: string; tracks?: ImportedTrack[]; totalSourceTracks?: number; hasMore?: boolean; nextOffset?: number; error?: string; }; if (!res.ok) throw new Error(data.error || 'Gagal mengimpor playlist Spotify.');
+        if (data.title) playlistTitle = data.title; if (typeof data.totalSourceTracks === 'number') totalSourceTracks = data.totalSourceTracks; if (Array.isArray(data.tracks)) { for (const tr of data.tracks) { if (tr?.videoId && !seenIds.has(tr.videoId)) { seenIds.add(tr.videoId); collected.push(tr); } } }
+        const total = totalSourceTracks || collected.length; setSpotifyImportMsg(`Mengimpor dari Spotify... ${Math.min(offset + 20, total)} / ${total} lagu`); hasMore = Boolean(data.hasMore); offset = typeof data.nextOffset === 'number' ? data.nextOffset : offset + 20; }
+      const finalTracks = collected.slice(0, 100); if (finalTracks.length > 0) { createPlaylist(playlistTitle, 'Imported from Spotify', finalTracks); const msg = `Berhasil mengimpor "${playlistTitle}" (${finalTracks.length}/${totalSourceTracks || finalTracks.length} lagu).`; setSpotifyImportMsg(msg); showToast(msg); setSpotifyUrl(''); } else { const msg = 'Tidak ada lagu yang cocok ditemukan dari playlist Spotify tersebut.'; setSpotifyImportMsg(msg); showToast(msg); }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Gagal mengimpor playlist Spotify.';
       setSpotifyImportMsg(msg);
