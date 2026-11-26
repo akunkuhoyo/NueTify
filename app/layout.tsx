@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { PwaRegister } from '@/components/PwaRegister';
 import { AppDownloadModal } from '@/components/AppDownloadModal';
+import { BroadcastNotificationListener } from '@/components/BroadcastNotificationListener';
 
 export const viewport: Viewport = {
   themeColor: '#121212',
@@ -57,6 +58,7 @@ export default function RootLayout({
       >
         <PwaRegister />
         <AppDownloadModal />
+        <BroadcastNotificationListener />
         {children}
       </body>
     </html>
