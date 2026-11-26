@@ -133,17 +133,15 @@ export async function POST(req: NextRequest) {
         key: 'maintenance',
         value: { enabled: nextEnabled, message: nextMessage },
         updated_at: new Date().toISOString(),
-        updated_by: user.email || ADMIN_EMAIL,
       },
       { onConflict: 'key' }
     );
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-
-    await db.from('admin_audit_logs').insert({
+    try { await db.from('admin_audit_logs').insert({
       admin_email: user.email || ADMIN_EMAIL,
       action: nextEnabled ? 'ENABLE_MAINTENANCE' : 'DISABLE_MAINTENANCE',
       details: { enabled: nextEnabled, message: nextMessage },
-    });
+    }); } catch {}
     return NextResponse.json({
       ok: true,
       maintenance: { enabled: nextEnabled, message: nextMessage },
@@ -154,9 +152,7 @@ export async function POST(req: NextRequest) {
     if (!body.key) {
       return NextResponse.json({ ok: false, error: 'Key required' }, { status: 400 });
     }
-    const { error } = await db.from('app_config').upsert(
-      { key: body.key, value: body.value ?? {}, updated_at: new Date().toISOString(), updated_by: user.email || ADMIN_EMAIL },
-      { onConflict: 'key' }
+      const { error } = await db.from('app_config').upsert({ key: body.key, value: body.value ?? {}, updated_at: new Date().toISOString() },     { onConflict: 'key' }
     );
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
 
