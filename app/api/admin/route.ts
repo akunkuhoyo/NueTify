@@ -32,8 +32,9 @@ async function verifyAdmin(req: NextRequest) {
 
   const isAllowed =
     u.id === ADMIN_UID || (u.email || '').trim().toLowerCase() === ADMIN_EMAIL;
+
   if (!isAllowed) {
-    return { error: NextResponse.json({ ok: false, error: 'Forbidden: Admin access only' }, { status: 403 }) };
+    return { error: NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 }) };
   }
 
   const adminClient = serviceKey
@@ -43,276 +44,450 @@ async function verifyAdmin(req: NextRequest) {
   return { user: u, userClient, adminClient };
 }
 
-export async function GET(req: NextRequest) {
-  const auth = await verifyAdmin(req);
-  if ('error' in auth && auth.error) return auth.error;
-  const { userClient, adminClient } = auth;
-  const db = adminClient || userClient;
-
-  const [configRes, bansRes, logsRes, lbRes, notificationsRes] = await Promise.all([
-    db.from('app_config').select('*'),
-    db.from('user_bans').select('*').order('created_at', { ascending: false }).limit(100),
-    db.from('admin_audit_logs').select('*').order('created_at', { ascending: false }).limit(50),
-    db.from('listening_leaderboard').select('*').order('total_seconds', { ascending: false }).limit(50),
-    db.from('app_notifications').select('*').order('created_at', { ascending: false }).limit(10),
-  ]);
-
-  let users: Array<{ id: string; email?: string; display_name?: string; created_at?: string; last_sign_in_at?: string }> = [];
-  if (adminClient) {
-    try {
-      const { data: listData } = await adminClient.auth.admin.listUsers({ page: 1, perPage: 100 });
-      if (listData?.users) {
-        users = listData.users.map((usr) => ({
-          id: usr.id,
-          email: usr.email,
-          display_name: (usr.user_metadata?.full_name || usr.user_metadata?.name || usr.email?.split('@')[0] || 'Pengguna') as string,
-          created_at: usr.created_at,
-          last_sign_in_at: usr.last_sign_in_at,
-        }));
-      }
-    } catch {
-      // ignore
+function parseDurationHours(duration?: string, durationHours?: number | null): number | null {
+  if (duration) {
+    const d = duration.trim().toLowerCase();
+    if (d === 'permanent') return null;
+    const match = d.match(/^(\d+)(h|d)$/);
+    if (match) {
+      const num = Number(match[1]);
+      return match[2] === 'd' ? num * 24 : num;
     }
   }
-  const maintRow = (configRes.data || []).find((c: { key?: string }) => c.key === 'maintenance');
-  const maintVal = (maintRow?.value || {}) as { enabled?: boolean; message?: string };
-  const maintenance = {
-    enabled: Boolean(maintVal.enabled),
-    message: String(maintVal.message || ''),
-  };
+  return typeof durationHours === 'number' ? durationHours : null;
+}
 
-  return NextResponse.json({
-    ok: true,
-    config: configRes.data || [],
-    bans: bansRes.data || [],
-    logs: logsRes.data || [],
-    leaderboard: lbRes.data || [],
-    notifications: notificationsRes.data || [],
-    users,
-maintenance,
-auditLogs: logsRes.data || [],
-  });
+export async function GET(req: NextRequest) {
+  try {
+    const auth = await verifyAdmin(req);
+    if ('error' in auth && auth.error) return auth.error;
+    const { userClient, adminClient } = auth;
+    const db = adminClient || userClient;
+
+    const [configRes, bansRes, logsRes, lbRes, notificationsRes, profilesRes] = await Promise.all([
+      db.from('app_config').select('*'),
+      db.from('user_bans').select('*').order('created_at', { ascending: false }).limit(100),
+      db.from('admin_audit_logs').select('*').order('created_at', { ascending: false }).limit(50),
+      db.from('listening_leaderboard').select('*').order('total_seconds', { ascending: false }).limit(50),
+      db.from('app_notifications').select('*').order('created_at', { ascending: false }).limit(10),
+      db.from('user_profiles').select('id, display_name, avatar_url'),
+    ]);
+
+    const profileMap = new Map<string, { display_name?: string | null; avatar_url?: string | null }>();
+    for (const p of profilesRes.data || []) {
+      if (p.id) profileMap.set(p.id, { display_name: p.display_name, avatar_url: p.avatar_url });
+    }
+
+    const banMap = new Map<string, any>();
+    for (const b of bansRes.data || []) {
+      if (b.user_id && !banMap.has(b.user_id)) {
+        banMap.set(b.user_id, b);
+      }
+    }
+
+    const lbMap = new Map<string, { total_seconds?: number; total_plays?: number }>();
+    for (const row of lbRes.data || []) {
+      if (row.user_id) {
+        lbMap.set(row.user_id, {
+          total_seconds: row.total_seconds,
+          total_plays: row.total_plays,
+        });
+      }
+    }
+
+    const overridesRow = (configRes.data || []).find((c) => c.key === 'leaderboard_overrides');
+    const overrides = (overridesRow?.value || {}) as Record<string, { total_seconds?: number; total_plays?: number }>;
+
+    let users: Array<{
+      id: string;
+      email: string;
+      display_name: string;
+      provider: string;
+      created_at: string;
+      last_sign_in_at: string | null;
+      is_banned: boolean;
+      ban_reason: string | null;
+      banned_until: string | null;
+      total_seconds: number;
+      total_plays: number;
+      has_stat_override: boolean;
+    }> = [];
+
+    if (adminClient) {
+      const { data: usersData } = await adminClient.auth.admin.listUsers({ perPage: 200 });
+      const authUsers = usersData?.users || [];
+      users = authUsers.map((usr) => {
+        const ban = banMap.get(usr.id);
+        const isActiveBan = Boolean(
+          ban && ban.is_active && (!ban.banned_until || new Date(ban.banned_until).getTime() > Date.now())
+        );
+        const lb = lbMap.get(usr.id);
+        const ov = overrides[usr.id];
+
+        return {
+          id: usr.id,
+          email: usr.email || '',
+          display_name:
+            profileMap.get(usr.id)?.display_name ||
+            usr.user_metadata?.custom_display_name ||
+            usr.user_metadata?.display_name ||
+            usr.user_metadata?.full_name ||
+            usr.user_metadata?.name ||
+            'Pengguna NueTify',
+          provider: String(usr.app_metadata?.provider || 'email'),
+          created_at: usr.created_at,
+          last_sign_in_at: usr.last_sign_in_at || null,
+          is_banned: isActiveBan,
+          ban_reason: isActiveBan ? (ban?.reason || '') : null,
+          banned_until: isActiveBan ? (ban?.banned_until || null) : null,
+          total_seconds: typeof ov?.total_seconds === 'number' ? ov.total_seconds : Number(lb?.total_seconds || 0),
+          total_plays: typeof ov?.total_plays === 'number' ? ov.total_plays : Number(lb?.total_plays || 0),
+          has_stat_override: Boolean(ov),
+        };
+      });
+    }
+
+    const maintenanceRow = (configRes.data || []).find((c) => c.key === 'maintenance');
+    const maintenance = maintenanceRow?.value || {
+      enabled: false,
+      message: 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
+    };
+
+    return NextResponse.json({
+      ok: true,
+      maintenance,
+      users,
+      auditLogs: logsRes.data || [],
+      notifications: notificationsRes.data || [],
+      config: configRes.data || [],
+      bans: bansRes.data || [],
+      logs: logsRes.data || [],
+      leaderboard: lbRes.data || [],
+    });
+  } catch (err: any) {
+    console.error('Admin GET error:', err);
+    return NextResponse.json({ ok: false, error: err?.message || 'Internal error' }, { status: 500 });
+  }
 }
 
 interface PostBody {
   action?: string;
   key?: string;
   value?: unknown;
+  enabled?: boolean;
+  reason?: string;
+  message?: string;
+  title?: string;
+  body?: string;
   user_id?: string;
   email?: string;
   display_name?: string;
-  reason?: string;
+  targetUserId?: string;
+  targetEmail?: string;
+  targetDisplayName?: string;
+  duration?: string;
   duration_hours?: number | null;
   total_seconds?: number;
   total_plays?: number;
-  title?: string;
-  body?: string;
-  enabled?: boolean;
-  message?: string;
+  totalHours?: number;
+  totalMinutes?: number;
+  totalPlays?: number;
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await verifyAdmin(req);
-  if ('error' in auth && auth.error) return auth.error;
-  const { user, userClient, adminClient } = auth;
-  const db = adminClient || userClient;
-
-  let body: PostBody = {};
   try {
-    body = await req.json();
-  } catch {
-    return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
-  }
-  if (body.action === 'toggle_maintenance') {
-    const nextEnabled = Boolean(body.enabled);
-    const nextMessage =
-      String(body.message || '').trim() ||
-      'NueTify sedang dalam pemeliharaan sistem. Silakan kembali beberapa saat lagi.';
-    const { error } = await db.from('app_config').upsert(
-      {
-        key: 'maintenance',
-        value: { enabled: nextEnabled, message: nextMessage },
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'key' }
-    );
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-    try { await db.from('admin_audit_logs').insert({
-      admin_email: user.email || ADMIN_EMAIL,
-      action: nextEnabled ? 'ENABLE_MAINTENANCE' : 'DISABLE_MAINTENANCE',
-      details: { enabled: nextEnabled, message: nextMessage },
-    }); } catch {}
-    return NextResponse.json({
-      ok: true,
-      maintenance: { enabled: nextEnabled, message: nextMessage },
-    });
-  }
+    const auth = await verifyAdmin(req);
+    if ('error' in auth && auth.error) return auth.error;
+    const { user, userClient, adminClient } = auth;
+    const db = adminClient || userClient;
 
-  if (body.action === 'update_config') {
-    if (!body.key) {
-      return NextResponse.json({ ok: false, error: 'Key required' }, { status: 400 });
+    const body = (await req.json()) as PostBody;
+    const action = body.action;
+
+    if (!action) {
+      return NextResponse.json({ ok: false, error: 'Missing action' }, { status: 400 });
     }
-      const { error } = await db.from('app_config').upsert({ key: body.key, value: body.value ?? {}, updated_at: new Date().toISOString() },     { onConflict: 'key' }
-    );
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
 
-    await db.from('admin_audit_logs').insert({
-      admin_email: user.email || ADMIN_EMAIL,
-      action: 'UPDATE_CONFIG',
-      details: { key: body.key, value: body.value },
-    });
-    return NextResponse.json({ ok: true });
-  }
+    if (action === 'toggle_maintenance') {
+      const enabled = Boolean(body.enabled);
+      const message = body.message || 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.';
+      const { error } = await db
+        .from('app_config')
+        .upsert(
+          { key: 'maintenance', value: { enabled, message }, updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
-  if (body.action === 'ban_user') {
-    if (!body.user_id) {
-      return NextResponse.json({ ok: false, error: 'user_id required' }, { status: 400 });
+      await db.from('admin_audit_logs').insert({
+        action: enabled ? 'ENABLE_MAINTENANCE' : 'DISABLE_MAINTENANCE',
+        details: { enabled, message },
+        admin_email: user.email || ADMIN_EMAIL,
+      });
+
+      return NextResponse.json({ ok: true, maintenance: { enabled, message } });
     }
-    if (body.user_id === ADMIN_UID || (body.email || '').toLowerCase() === ADMIN_EMAIL) {
-      return NextResponse.json({ ok: false, error: 'Cannot ban primary administrator' }, { status: 400 });
+
+    if (action === 'update_config') {
+      if (!body.key) return NextResponse.json({ ok: false, error: 'Missing key' }, { status: 400 });
+      const { error } = await db
+        .from('app_config')
+        .upsert(
+          { key: body.key, value: body.value, updated_at: new Date().toISOString() },
+          { onConflict: 'key' }
+        );
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+      await db.from('admin_audit_logs').insert({
+        action: 'UPDATE_CONFIG',
+        details: { key: body.key, value: body.value },
+        admin_email: user.email || ADMIN_EMAIL,
+      });
+
+      return NextResponse.json({ ok: true });
     }
-    const bannedUntil =
-      body.duration_hours && body.duration_hours > 0
-        ? new Date(Date.now() + body.duration_hours * 3600_000).toISOString()
-        : null;
 
-    const { error } = await db.from('user_bans').upsert(
-      {
-        user_id: body.user_id,
-        email: body.email || '',
-        display_name: body.display_name || 'Pengguna',
-        reason: body.reason || 'Melanggar kebijakan penggunaan NueTify',
-        banned_by: user.email || ADMIN_EMAIL,
-        banned_until: bannedUntil,
-        is_active: true,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    );
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+    if (action === 'ban_user') {
+      const targetId = body.targetUserId || body.user_id;
+      if (!targetId) {
+        return NextResponse.json({ ok: false, error: 'Missing target user ID' }, { status: 400 });
+      }
+      const targetEmail = body.targetEmail || body.email || '';
+      const targetDisplayName = body.targetDisplayName || body.display_name || 'Pengguna NueTify';
+      const hours = parseDurationHours(body.duration, body.duration_hours);
+      const bannedUntil = hours !== null ? new Date(Date.now() + hours * 3600 * 1000).toISOString() : null;
+      const reason = body.reason || 'Melanggar ketentuan NueTify';
 
-    await db.from('listening_leaderboard').delete().eq('user_id', body.user_id);
-
-    await db.from('admin_audit_logs').insert({
-      admin_email: user.email || ADMIN_EMAIL,
-      action: 'BAN_USER',
-      target_user_id: body.user_id,
-      target_email: body.email || '',
-      details: { reason: body.reason, duration_hours: body.duration_hours },
-    });
-    return NextResponse.json({ ok: true });
-  }
-
-  if (body.action === 'unban_user') {
-    if (!body.user_id) {
-      return NextResponse.json({ ok: false, error: 'user_id required' }, { status: 400 });
-    }
-    const { error } = await db
-      .from('user_bans')
-      .update({ is_active: false, updated_at: new Date().toISOString() })
-      .eq('user_id', body.user_id);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-
-    await db.from('admin_audit_logs').insert({
-      admin_email: user.email || ADMIN_EMAIL,
-      action: 'UNBAN_USER',
-      target_user_id: body.user_id,
-      target_email: body.email || '',
-      details: {},
-    });
-    return NextResponse.json({ ok: true });
-  }
-
-  if (body.action === 'delete_leaderboard_entry') {
-    if (!body.user_id) {
-      return NextResponse.json({ ok: false, error: 'user_id required' }, { status: 400 });
-    }
-    const { error } = await db.from('listening_leaderboard').delete().eq('user_id', body.user_id);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-
-    await db.from('admin_audit_logs').insert({
-      admin_email: user.email || ADMIN_EMAIL,
-      action: 'DELETE_LEADERBOARD_ENTRY',
-      target_user_id: body.user_id,
-      details: {},
-    });
-    return NextResponse.json({ ok: true });
-  }
-
-  if (body.action === 'update_leaderboard_stats') {
-    if (!body.user_id) {
-      return NextResponse.json({ ok: false, error: 'user_id required' }, { status: 400 });
-    }
-    const totalSeconds = Math.max(0, Math.round(Number(body.total_seconds ?? 0)));
-    const totalPlays = Math.max(0, Math.round(Number(body.total_plays ?? 0)));
-    const { error } = await db
-      .from('listening_leaderboard')
-      .update({ total_seconds: totalSeconds, total_plays: totalPlays, updated_at: new Date().toISOString() })
-      .eq('user_id', body.user_id);
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
-
-    await db.from('admin_audit_logs').insert({
-      admin_email: user.email || ADMIN_EMAIL,
-      action: 'UPDATE_LEADERBOARD_STATS',
-      target_user_id: body.user_id,
-      details: { total_seconds: totalSeconds, total_plays: totalPlays },
-    });
-    return NextResponse.json({ ok: true, total_seconds: totalSeconds, total_plays: totalPlays });
-  }
-
-  if (body.action === 'reset_leaderboard_override') {
-    const targetUid = body.user_id || user.id;
-    const targetHours = Number((body as { hours?: number }).hours ?? 12);
-    const totalSeconds = Math.max(0, Math.round(targetHours * 3600));
-    const totalPlays = Math.max(0, Math.round(Number(body.total_plays ?? Math.round(totalSeconds / 210))));
-    const { error } = await db
-      .from('listening_leaderboard')
-      .upsert(
+      const { error } = await db.from('user_bans').upsert(
         {
-          user_id: targetUid,
-          display_name: body.display_name || 'Developer NueTify',
+          user_id: targetId,
+          email: targetEmail,
+          display_name: targetDisplayName,
+          reason,
+          banned_until: bannedUntil,
+          is_active: true,
+          banned_by: user.email || ADMIN_EMAIL,
+        },
+        { onConflict: 'user_id' }
+      );
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+      await db.from('listening_leaderboard').delete().eq('user_id', targetId);
+
+      await db.from('admin_audit_logs').insert({
+        action: 'BAN_USER',
+        target_user_id: targetId,
+        target_email: targetEmail,
+        details: { reason, duration: body.duration || null, banned_until: bannedUntil },
+        admin_email: user.email || ADMIN_EMAIL,
+      });
+
+      return NextResponse.json({ ok: true, banned_until: bannedUntil });
+    }
+
+    if (action === 'unban_user') {
+      const targetId = body.targetUserId || body.user_id;
+      if (!targetId) {
+        return NextResponse.json({ ok: false, error: 'Missing target user ID' }, { status: 400 });
+      }
+      const targetEmail = body.targetEmail || body.email || '';
+
+      const { error } = await db
+        .from('user_bans')
+        .update({ is_active: false })
+        .eq('user_id', targetId);
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+      await db.from('admin_audit_logs').insert({
+        action: 'UNBAN_USER',
+        target_user_id: targetId,
+        target_email: targetEmail,
+        details: {},
+        admin_email: user.email || ADMIN_EMAIL,
+      });
+
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === 'update_leaderboard_stats') {
+      const targetId = body.targetUserId || body.user_id;
+      if (!targetId) {
+        return NextResponse.json({ ok: false, error: 'Missing target user ID' }, { status: 400 });
+      }
+
+      const totalSeconds =
+        typeof body.total_seconds === 'number'
+          ? Math.max(0, Math.floor(body.total_seconds))
+          : Math.max(0, Math.floor(Number(body.totalHours || 0) * 3600 + Number(body.totalMinutes || 0) * 60));
+      const safePlays = Math.max(0, Math.floor(Number(body.totalPlays ?? body.total_plays ?? 0)));
+
+      const { data: existingCfg } = await db
+        .from('app_config')
+        .select('value')
+        .eq('key', 'leaderboard_overrides')
+        .maybeSingle();
+
+      const currentOverrides = ((existingCfg?.value || {}) as Record<
+        string,
+        { total_seconds?: number; total_plays?: number }
+      >);
+      const nextOverrides = {
+        ...currentOverrides,
+        [targetId]: { total_seconds: totalSeconds, total_plays: safePlays },
+      };
+
+      const { error: cfgErr } = await db
+        .from('app_config')
+        .upsert(
+          {
+            key: 'leaderboard_overrides',
+            value: nextOverrides,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'key' }
+        );
+      if (cfgErr) return NextResponse.json({ ok: false, error: cfgErr.message }, { status: 500 });
+
+      const { data: profileRow } = await db
+        .from('user_profiles')
+        .select('display_name, avatar_url')
+        .eq('id', targetId)
+        .maybeSingle();
+
+      const { error: lbErr } = await db.from('listening_leaderboard').upsert(
+        {
+          user_id: targetId,
+          display_name: profileRow?.display_name || body.targetDisplayName || body.display_name || 'Pengguna NueTify',
+          avatar_url: profileRow?.avatar_url || null,
           total_seconds: totalSeconds,
-          total_plays: totalPlays,
+          total_plays: safePlays,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id' }
       );
-    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+      if (lbErr) return NextResponse.json({ ok: false, error: lbErr.message }, { status: 500 });
 
-    await db.from('admin_audit_logs').insert({
-      admin_email: user.email || ADMIN_EMAIL,
-      action: 'RESET_LEADERBOARD_OVERRIDE',
-      target_user_id: targetUid,
-      details: { hours: targetHours, total_seconds: totalSeconds, total_plays: totalPlays },
-    });
-    return NextResponse.json({ ok: true, total_seconds: totalSeconds, total_plays: totalPlays });
-  }
+      await db.from('admin_audit_logs').insert({
+        action: 'UPDATE_LEADERBOARD_STATS',
+        target_user_id: targetId,
+        target_email: body.targetEmail || body.email || '',
+        details: {
+          total_seconds: totalSeconds,
+          total_plays: safePlays,
+          reason: body.reason || null,
+        },
+        admin_email: user.email || ADMIN_EMAIL,
+      });
 
-  if (body.action === 'send_broadcast_notification') {
-    const title = (body.title || '').trim();
-    const messageBody = (body.body || '').trim();
-    if (!title || !messageBody) {
-      return NextResponse.json({ ok: false, error: 'Judul dan isi notifikasi wajib diisi' }, { status: 400 });
+      return NextResponse.json({ ok: true, total_seconds: totalSeconds, total_plays: safePlays });
     }
-    const { data: notification, error: notifErr } = await db
-      .from('app_notifications')
-      .insert({
-        title,
-        body: messageBody,
-        sent_by: auth.user.email || ADMIN_EMAIL,
-      })
-      .select()
-      .single();
-    if (notifErr) {
-      return NextResponse.json({ ok: false, error: notifErr.message }, { status: 400 });
-    }
-    await db.from('admin_audit_logs').insert({
-      admin_email: auth.user.email || ADMIN_EMAIL,
-      action: 'BROADCAST_NOTIFICATION',
-      details: { title, body: messageBody, notification_id: notification?.id },
-    });
-    return NextResponse.json({ ok: true, notification });
-  }
 
-  return NextResponse.json({ ok: false, error: 'Unknown action' }, { status: 400 });
+    if (action === 'reset_leaderboard_override') {
+      const targetId = body.targetUserId || body.user_id;
+      if (!targetId) {
+        return NextResponse.json({ ok: false, error: 'Missing target user ID' }, { status: 400 });
+      }
+
+      const { data: existingCfg } = await db
+        .from('app_config')
+        .select('value')
+        .eq('key', 'leaderboard_overrides')
+        .maybeSingle();
+
+      const nextOverrides = {
+        ...((existingCfg?.value || {}) as Record<string, { total_seconds?: number; total_plays?: number }>),
+      };
+      delete nextOverrides[targetId];
+
+      const { error: cfgErr } = await db
+        .from('app_config')
+        .upsert(
+          {
+            key: 'leaderboard_overrides',
+            value: nextOverrides,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'key' }
+        );
+      if (cfgErr) return NextResponse.json({ ok: false, error: cfgErr.message }, { status: 500 });
+
+      await db.from('admin_audit_logs').insert({
+        action: 'RESET_LEADERBOARD_OVERRIDE',
+        target_user_id: targetId,
+        target_email: body.targetEmail || body.email || '',
+        details: {},
+        admin_email: user.email || ADMIN_EMAIL,
+      });
+
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === 'broadcast_app_update') {
+      const broadcast = {
+        broadcast_id: crypto.randomUUID(),
+        message: body.message || 'Pembaruan baru NueTify tersedia! Silakan update aplikasi sekarang.',
+        broadcast_at: new Date().toISOString(),
+        triggered_by: user.email || ADMIN_EMAIL,
+      };
+
+      const { error } = await db
+        .from('app_config')
+        .upsert(
+          {
+            key: 'app_update_broadcast',
+            value: broadcast,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'key' }
+        );
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+
+      await db.from('admin_audit_logs').insert({
+        action: 'BROADCAST_APP_UPDATE',
+        details: broadcast,
+        admin_email: user.email || ADMIN_EMAIL,
+      });
+
+      return NextResponse.json({ ok: true, broadcast });
+    }
+
+    if (action === 'send_broadcast_notification') {
+      const title = (body.title || '').trim();
+      const notifBody = (body.body || '').trim();
+
+      if (!title || !notifBody) {
+        return NextResponse.json(
+          { ok: false, error: 'Judul dan isi notifikasi wajib diisi.' },
+          { status: 400 }
+        );
+      }
+
+      const { data: notifData, error: notifErr } = await db
+        .from('app_notifications')
+        .insert({
+          title,
+          body: notifBody,
+          created_by: user.email || ADMIN_EMAIL,
+        })
+        .select()
+        .single();
+
+      if (notifErr) {
+        return NextResponse.json({ ok: false, error: notifErr.message }, { status: 500 });
+      }
+
+      await db.from('admin_audit_logs').insert({
+        action: 'SEND_BROADCAST_NOTIFICATION',
+        details: { title, body: notifBody, notification_id: notifData?.id },
+        admin_email: user.email || ADMIN_EMAIL,
+      });
+
+      return NextResponse.json({ ok: true, notification: notifData });
+    }
+
+    return NextResponse.json({ ok: false, error: 'Unknown action' }, { status: 400 });
+  } catch (err: any) {
+    console.error('Admin POST error:', err);
+    return NextResponse.json({ ok: false, error: err?.message || 'Internal error' }, { status: 500 });
+  }
 }
