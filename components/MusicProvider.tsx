@@ -963,11 +963,11 @@ resumeCheckTimer = window.setTimeout(() => {
   }, [currentTrack, isPlaying, pause, play]);
   const trackManualSkipForAntiCheat = useCallback(() => {
       const now = Date.now();
-    skipClickTimestampsRef.current = skipClickTimestampsRef.current.filter((t) => now - t <= 10_000);
-    skipClickTimestampsRef.current.push(now);
-    if (skipClickTimestampsRef.current.length >= 12 && !cheatReportedRef.current && user) {
+    skipClickTimestampsRef.current = skipClickTimestampsRef.current.filter((t) => now - t <= 8_000);
+    skipClickTimestampsRef.current.push(now); if (skipClickTimestampsRef.current.length === 16) { showToast('Peringatan: Jangan menekan tombol skip terlalu cepat. Penggunaan auto-clicker akan memicu ban otomatis 24 jam.'); }
+    if (skipClickTimestampsRef.current.length >= 28 && !cheatReportedRef.current && user) {
       cheatReportedRef.current = true; userPausedRef.current = true; intendedPlayingRef.current = false; ytPlayerRef.current?.pauseVideo?.(); setIsPlaying(false); window.dispatchEvent(new Event('nuetify-force-stop'));
-      getSupabaseClient()?.auth.getSession().then(({ data }) => { const token = data?.session?.access_token; if (!token) return; fetch('/api/security/report-cheat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ trigger: 'AUTO_CLICKER_SKIP', clicksInWindow: skipClickTimestampsRef.current.length, windowSeconds: 10 }) }).catch(() => {}); }); return true;
+      getSupabaseClient()?.auth.getSession().then(({ data }) => { const token = data?.session?.access_token; if (!token) return; fetch('/api/security/report-cheat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ trigger: 'AUTO_CLICKER_SKIP', clicksInWindow: skipClickTimestampsRef.current.length, windowSeconds: 8 }) }).catch(() => {}); }); return true;
       } return false; }, [user]);
   const nextTrack = useCallback((manual = true) => { if (manual && trackManualSkipForAntiCheat()) return;
     const stayPaused =
