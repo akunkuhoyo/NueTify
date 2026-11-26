@@ -74,6 +74,12 @@ export async function GET(req: NextRequest) {
       // ignore
     }
   }
+  const maintRow = (configRes.data || []).find((c: { key?: string }) => c.key === 'maintenance');
+  const maintVal = (maintRow?.value || {}) as { enabled?: boolean; message?: string };
+  const maintenance = {
+    enabled: Boolean(maintVal.enabled),
+    message: String(maintVal.message || ''),
+  };
 
   return NextResponse.json({
     ok: true,
@@ -83,6 +89,8 @@ export async function GET(req: NextRequest) {
     leaderboard: lbRes.data || [],
     notifications: notificationsRes.data || [],
     users,
+maintenance,
+auditLogs: logsRes.data || [],
   });
 }
 
@@ -99,6 +107,8 @@ interface PostBody {
   total_plays?: number;
   title?: string;
   body?: string;
+  enabled?: boolean;
+  message?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -112,6 +122,32 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: 'Invalid JSON' }, { status: 400 });
+  }
+  if (body.action === 'toggle_maintenance') {
+    const nextEnabled = Boolean(body.enabled);
+    const nextMessage =
+      String(body.message || '').trim() ||
+      'NueTify sedang dalam pemeliharaan sistem. Silakan kembali beberapa saat lagi.';
+    const { error } = await db.from('app_config').upsert(
+      {
+        key: 'maintenance',
+        value: { enabled: nextEnabled, message: nextMessage },
+        updated_at: new Date().toISOString(),
+        updated_by: user.email || ADMIN_EMAIL,
+      },
+      { onConflict: 'key' }
+    );
+    if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 400 });
+
+    await db.from('admin_audit_logs').insert({
+      admin_email: user.email || ADMIN_EMAIL,
+      action: nextEnabled ? 'ENABLE_MAINTENANCE' : 'DISABLE_MAINTENANCE',
+      details: { enabled: nextEnabled, message: nextMessage },
+    });
+    return NextResponse.json({
+      ok: true,
+      maintenance: { enabled: nextEnabled, message: nextMessage },
+    });
   }
 
   if (body.action === 'update_config') {
