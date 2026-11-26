@@ -72,6 +72,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         activeInstance = java.lang.ref.WeakReference(this)
+        NotificationPushReceiver.scheduleNext(this)
 
         window.statusBarColor = Color.parseColor("#121212")
         window.navigationBarColor = Color.parseColor("#121212")
@@ -403,6 +404,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class NativeBridge {
+        @JavascriptInterface
+        fun showPushNotification(id: String, title: String, body: String) {
+            NotificationPushReceiver.showNotification(this@MainActivity, id, title, body)
+        }
         @JavascriptInterface
         fun openExternalAuth(url: String) {
             runOnUiThread {
