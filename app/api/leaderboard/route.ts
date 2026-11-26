@@ -57,20 +57,7 @@ export async function GET(req: NextRequest) {
 
     const bannedUserIds = new Set<string>();
     if (admin) {
-      const { data: banRows } = await admin
-        .from('user_bans')
-        .select('user_id, is_active, banned_until')
-        .eq('is_active', true);
-      if (Array.isArray(banRows)) {
-        const nowMs = Date.now();
-        for (const b of banRows as Array<{ user_id?: string; is_active?: boolean; banned_until?: string | null }>) {
-          if (b.user_id && b.is_active === true && (!b.banned_until || new Date(b.banned_until).getTime() > nowMs)) {
-            bannedUserIds.add(b.user_id);
-          }
-        }
-      }
-    }
-
+  const [lbRes, profRes, banRes, cfgRes, usersRes, musicRes] = await Promise.all([admin.from('listening_leaderboard').select('user_id, display_name, avatar_url, total_seconds, total_plays'), admin.from('user_profiles').select('user_id, display_name, avatar_url'), admin.from('user_bans').select('user_id, is_active, banned_until').eq('is_active', true), admin.from('app_config').select('key, value').eq('key', 'leaderboard_overrides').maybeSingle(), admin.auth.admin.listUsers({ perPage: 1000 }).catch(() => ({ data: { users: [] } })), admin.from('user_music_data').select('user_id, data')]); const nowMs = Date.now(); for (const b of (banRes.data || []) as Array<{ user_id?: string; is_active?: boolean; banned_until?: string | null }>) { if (b.user_id && b.is_active === true && (!b.banned_until || new Date(b.banned_until).getTime() > nowMs)) bannedUserIds.add(b.user_id); } const profMap = new Map<string, { display_name?: string | null; avatar_url?: string | null }>(); for (const p of (profRes.data || []) as Array<{ user_id: string; display_name?: string | null; avatar_url?: string | null }>) { if (p.user_id) profMap.set(p.user_id, p); } const verifiedIds = new Set<string>(['ebc0b783-4ebd-44b2-89de-990c57cfd297']); for (const u of (usersRes?.data?.users || []) as Array<{ id?: string; email_confirmed_at?: string | null; confirmed_at?: string | null; user_metadata?: Record<string, unknown> }>) { if (!u?.id) continue; if (u.email_confirmed_at || u.confirmed_at) verifiedIds.add(u.id); const meta = u.user_metadata || {}; const fn = typeof meta.full_name === 'string' ? meta.full_name : typeof meta.name === 'string' ? meta.name : null; const av = typeof meta.avatar_url === 'string' ? meta.avatar_url : null; const ep = profMap.get(u.id); if (!ep?.display_name && fn) profMap.set(u.id, { display_name: fn, avatar_url: ep?.avatar_url || av }); } const overrides = (cfgRes?.data?.value && typeof cfgRes.data.value === 'object' ? cfgRes.data.value : {}) as Record<string, { total_seconds?: number; total_plays?: number; display_name?: string; avatar_url?: string }>; const byUser = new Map<string, { user_id: string; display_name?: string | null; avatar_url?: string | null; total_seconds: number; total_plays: number }>(); for (const r of (lbRes.data || []) as Array<{ user_id: string; display_name?: string | null; avatar_url?: string | null; total_seconds?: number | null; total_plays?: number | null }>) { if (!r.user_id || bannedUserIds.has(r.user_id)) continue; const ex = byUser.get(r.user_id); byUser.set(r.user_id, { user_id: r.user_id, display_name: r.display_name || ex?.display_name || null, avatar_url: r.avatar_url || ex?.avatar_url || null, total_seconds: Math.max(ex?.total_seconds || 0, Number(r.total_seconds || 0)), total_plays: Math.max(ex?.total_plays || 0, Number(r.total_plays || 0)) }); } for (const m of (musicRes.data || []) as Array<{ user_id: string; data?: { history?: any[] } | null }>) { if (!m.user_id || bannedUserIds.has(m.user_id)) continue; const stats = calcHistoryStats(m.data?.history); const ex = byUser.get(m.user_id); byUser.set(m.user_id, { user_id: m.user_id, display_name: ex?.display_name || null, avatar_url: ex?.avatar_url || null, total_seconds: Math.max(ex?.total_seconds || 0, stats.totalSeconds), total_plays: Math.max(ex?.total_plays || 0, stats.totalPlays) }); } for (const [uid, ov] of Object.entries(overrides)) { if (!uid || bannedUserIds.has(uid) || !ov || typeof ov !== 'object') continue; const ex = byUser.get(uid); byUser.set(uid, { user_id: uid, display_name: ov.display_name || ex?.display_name || null, avatar_url: ov.avatar_url || ex?.avatar_url || null, total_seconds: ov.total_seconds !== undefined ? Number(ov.total_seconds) : (ex?.total_seconds || 0), total_plays: ov.total_plays !== undefined ? Number(ov.total_plays) : (ex?.total_plays || 0) }); } const entries = Array.from(byUser.values()).filter((r) => !bannedUserIds.has(r.user_id) && (Object.prototype.hasOwnProperty.call(overrides, r.user_id) || r.total_seconds >= 60)).map((r) => { const p = profMap.get(r.user_id); const rawName = (p?.display_name || r.display_name || '').trim(); const valid = rawName.length > 0 && rawName.toLowerCase() !== 'undefined' && rawName.toLowerCase() !== 'null' && !rawName.includes('@'); return { user_id: r.user_id, display_name: valid ? rawName : 'Pengguna NueTify', avatar_url: p?.avatar_url || r.avatar_url || null, total_seconds: r.total_seconds, total_plays: r.total_plays, is_verified: verifiedIds.has(r.user_id) }; }).sort((a, b) => b.total_seconds - a.total_seconds).slice(0, 100); return NextResponse.json({ entries }); }
     const { data: rows, error } = await db
       .from('listening_leaderboard')
       .select('user_id, display_name, avatar_url, total_seconds, total_plays')
@@ -219,8 +206,7 @@ export async function POST(req: NextRequest) {
       const deltaSeconds = Math.max(0, rawSeconds - existingSeconds);
       const deltaPlays = Math.max(0, rawPlays - existingPlays);
 
-      if (!isDeveloper && ((deltaPlays >= 12 && elapsedSec <= 120) || (deltaSeconds > Math.max(1800, elapsedSec * 4)))) {
-        if (admin) {
+          if (existing !== null && elapsedSec <= 300 && !isDeveloper && !hasAdminOverride && ((deltaPlays >= 25 && elapsedSec <= 120) || (deltaSeconds > Math.max(7200, elapsedSec * 10)))) {        if (admin) {
           const bannedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
           const reason =
             'Auto-Ban 24 Jam (Sistem Anti-Cheat NueTify): Terdeteksi lonjakan tidak wajar pada statistik waktu dengar/jumlah putar Leaderboard (indikasi auto-clicker atau manipulasi sistem).';
@@ -262,8 +248,8 @@ export async function POST(req: NextRequest) {
 
       const maxAllowedSeconds = existingSeconds + Math.max(240, Math.floor(elapsedSec * 1.5));
       const maxAllowedPlays = existingPlays + Math.max(4, Math.ceil(elapsedSec / 30));
-      totalSeconds = Math.min(totalSeconds, maxAllowedSeconds);
-      totalPlays = Math.min(totalPlays, maxAllowedPlays);
+          if (existing !== null) { totalSeconds = Math.min(totalSeconds, maxAllowedSeconds); totalPlays = Math.min(totalPlays, maxAllowedPlays); }
+          totalSeconds = Math.max(existingSeconds, totalSeconds); totalPlays = Math.max(existingPlays, totalPlays);
     }
 
     const rawBodyName = typeof body?.display_name === 'string' ? body.display_name.trim() : '';
