@@ -569,7 +569,6 @@ setBroadcastingUpdate(false);
   </div>
             </div>
           </section>
-        )}
           <section className="rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 p-5 mt-4 space-y-4">
             <div className="flex items-center gap-2.5">
               <Bell className="w-5 h-5 text-emerald-400" />
@@ -650,7 +649,7 @@ setBroadcastingUpdate(false);
             </div>
           </section>
           </>
-
+      )}
         {tab === 'users' && (
           <section className="rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 divide-y divide-[#C0C0C0]/10 overflow-hidden">
             {users.map((u) => (
