@@ -14,6 +14,8 @@ import {
   X,
   RefreshCw,
 BarChart3,
+  Bell,
+  Send,
 } from 'lucide-react';
 import { getSupabaseClient } from '@/lib/cloud/supabaseClient';
 import { LoadingSquares } from '@/components/LoadingSquares';
@@ -41,6 +43,13 @@ interface AuditLogRow {
   created_at: string;
 }
 
+interface BroadcastNotificationRow {
+  id: string;
+  title: string;
+  body: string;
+  created_at?: string;
+}
+
 export default function AdminDashboardPage() {
   const [checking, setChecking] = useState(true);
   const [accessToken, setAccessToken] = useState<string>('');
@@ -54,6 +63,11 @@ export default function AdminDashboardPage() {
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
   const [maintenanceMsg, setMaintenanceMsg] = useState('');
   const [users, setUsers] = useState<AdminUserRow[]>([]);
+  const [notifications, setNotifications] = useState<BroadcastNotificationRow[]>([]);
+  const [notifTitle, setNotifTitle] = useState('');
+  const [notifBody, setNotifBody] = useState('');
+  const [sendingNotif, setSendingNotif] = useState(false);
+  const [notifStatus, setNotifStatus] = useState<string | null>(null);
   const [logs, setLogs] = useState<AuditLogRow[]>([]);
   const [statusMsg, setStatusMsg] = useState('');
 const [broadcastingUpdate, setBroadcastingUpdate] = useState(false);
@@ -84,11 +98,13 @@ const [broadcastNotice, setBroadcastNotice] = useState<string | null>(null);
       maintenance?: { enabled: boolean; message: string };
       users?: AdminUserRow[];
       auditLogs?: AuditLogRow[];
+        notifications?: BroadcastNotificationRow[];
     };
     setMaintenanceEnabled(Boolean(data.maintenance?.enabled));
     setMaintenanceMsg(data.maintenance?.message || '');
     setUsers(Array.isArray(data.users) ? data.users : []);
     setLogs(Array.isArray(data.auditLogs) ? data.auditLogs : []);
+      setNotifications(Array.isArray(data.notifications) ? data.notifications.slice(0, 5) : []);
     setAuthError('');
     return true;
   }, []);
@@ -198,6 +214,45 @@ setBroadcastNotice('Terjadi kesalahan jaringan saat mengirim broadcast update.')
 setBroadcastingUpdate(false);
 }
 };
+  const handleSendBroadcastNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!accessToken || sendingNotif) return;
+    const title = notifTitle.trim();
+    const body = notifBody.trim();
+    if (!title || !body) {
+      setNotifStatus('Judul dan isi notifikasi wajib diisi.');
+      return;
+    }
+    setSendingNotif(true);
+    setNotifStatus(null);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          action: 'send_broadcast_notification',
+          title,
+          body,
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || json.ok === false) {
+        setNotifStatus(json.error ?? 'Gagal mengirim notifikasi broadcast.');
+      } else {
+        setNotifTitle('');
+        setNotifBody('');
+        setNotifStatus('Notifikasi real-time berhasil dikirim ke semua pengguna.');
+        await loadDashboard(accessToken);
+      }
+    } catch {
+      setNotifStatus('Terjadi kesalahan jaringan saat mengirim notifikasi.');
+    } finally {
+      setSendingNotif(false);
+    }
+  };
 
   const handleConfirmBan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -457,6 +512,7 @@ setBroadcastingUpdate(false);
         </div>
 
         {tab === 'maintenance' && (
+          <>
           <section className="rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 p-5 space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div>
@@ -514,6 +570,86 @@ setBroadcastingUpdate(false);
             </div>
           </section>
         )}
+          <section className="rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 p-5 mt-4 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <Bell className="w-5 h-5 text-emerald-400" />
+              <div>
+                <h2 className="text-base font-bold text-white">
+                  Kirim Notifikasi Real-Time ke Semua Pengguna
+                </h2>
+                <p className="text-xs text-[#A7A7A7] mt-0.5">
+                  Notifikasi akan muncul secara langsung di aplikasi web dan Android.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={(e) => void handleSendBroadcastNotification(e)} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-[#C0C0C0] mb-1.5">
+                  Judul Notifikasi
+                </label>
+                <input
+                  type="text"
+                  value={notifTitle}
+                  onChange={(e) => setNotifTitle(e.target.value)}
+                  placeholder="Contoh: Pembaruan Lagu & Fitur Baru"
+                  className="w-full rounded-xl bg-[#242424] border border-[#C0C0C0]/20 px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C0C0C0]"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#C0C0C0] mb-1.5">
+                  Isi Pesan
+                </label>
+                <textarea
+                  rows={3}
+                  value={notifBody}
+                  onChange={(e) => setNotifBody(e.target.value)}
+                  placeholder="Tulis pesan notifikasi untuk semua pengguna..."
+                  className="w-full rounded-xl bg-[#242424] border border-[#C0C0C0]/20 p-3 text-sm text-white focus:outline-none focus:border-[#C0C0C0]"
+                />
+              </div>
+              {notifStatus && (
+                <p className="text-xs text-[#C0C0C0]">{notifStatus}</p>
+              )}
+              <button
+                type="submit"
+                disabled={sendingNotif}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold bg-emerald-500 text-black hover:bg-emerald-400 disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>{sendingNotif ? 'Mengirim...' : 'Kirim Notifikasi'}</span>
+              </button>
+            </form>
+
+            <div className="pt-4 border-t border-[#C0C0C0]/15 space-y-2.5">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#A7A7A7]">
+                5 Notifikasi Terakhir
+              </h3>
+              {notifications.length === 0 ? (
+                <p className="text-xs text-[#737373]">Belum ada riwayat notifikasi.</p>
+              ) : (
+                <div className="space-y-2">
+                  {notifications.slice(0, 5).map((n) => (
+                    <div
+                      key={n.id}
+                      className="rounded-xl bg-[#242424] border border-[#C0C0C0]/10 p-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-bold text-white">{n.title}</p>
+                        {n.created_at && (
+                          <span className="text-[10px] text-[#737373] shrink-0">
+                            {new Date(n.created_at).toLocaleString('id-ID')}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#A7A7A7] mt-1">{n.body}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+          </>
 
         {tab === 'users' && (
           <section className="rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 divide-y divide-[#C0C0C0]/10 overflow-hidden">
