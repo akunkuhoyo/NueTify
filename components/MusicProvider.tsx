@@ -1,5 +1,6 @@
 'use client';
 import { useAuth } from './AuthProvider';
+import { getSupabaseClient } from '@/lib/cloud/supabaseClient';
 
 import React, {
   createContext,
@@ -282,7 +283,11 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
   const lastLoadedVideoIdRef = useRef<string | null>(null);
   const nextTrackRef = useRef<(manual?: boolean) => void>(() => {});
   const radioFetchingRef = useRef<string | null>(null);
-
+  const realListenSecRef = useRef(0);
+  const recordedTrackKeyRef = useRef<string | null>(null);
+  const skipClickTimestampsRef = useRef<number[]>([]);
+  const cheatReportedRef = useRef(false);
+  
   // Background playback refs
   const userPausedRef = useRef(false);
   const intendedPlayingRef = useRef(false);
@@ -648,12 +653,8 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
       setCurrentTime(0);
       setDuration(currentTrack.duration ?? 210);
 
-      // Record play in Metrolist history
-      setHistory((prev) => {
-        const updated = recordTrackPlay(prev, currentTrack);
-        saveHistory(updated);
-        return updated;
-      });
+     realListenSecRef.current = 0;
+      recordedTrackKeyRef.current = null;
 
       // Fetch Lyrics
       setLyricsLoading(true);
@@ -707,7 +708,19 @@ syncMusicData({ settings, playlists, likedTracks, history, searchHistory, savedC
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrack?.videoId]);
-
+  useEffect(() => {
+      if (!isPlaying || !currentTrack) return;
+    const timer = setInterval(() => {
+        if (ytPlayerRef.current?.getPlayerState?.() === 1) {
+          realListenSecRef.current += 1;
+          if (realListenSecRef.current >= 30 && recordedTrackKeyRef.current !== currentTrack.videoId) {
+             recordedTrackKeyRef.current = currentTrack.videoId;
+            setHistory((prev) => { const updated = recordTrackPlay(prev, currentTrack); saveHistory(updated); return updated; });
+            } }
+      }, 1000);
+    return () => clearInterval(timer);
+   }, [isPlaying, currentTrack]);
+  
   // Non-focus-stealing Web Audio Thread Keep-Alive + Browser Tab Title Sync
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -948,8 +961,15 @@ resumeCheckTimer = window.setTimeout(() => {
       play();
     }
   }, [currentTrack, isPlaying, pause, play]);
-
-  const nextTrack = useCallback((manual = true) => {
+  const trackManualSkipForAntiCheat = useCallback(() => {
+      const now = Date.now();
+    skipClickTimestampsRef.current = skipClickTimestampsRef.current.filter((t) => now - t <= 10_000);
+    skipClickTimestampsRef.current.push(now);
+    if (skipClickTimestampsRef.current.length >= 12 && !cheatReportedRef.current && user) {
+      cheatReportedRef.current = true; userPausedRef.current = true; intendedPlayingRef.current = false; ytPlayerRef.current?.pauseVideo?.(); setIsPlaying(false); window.dispatchEvent(new Event('nuetify-force-stop'));
+      getSupabaseClient()?.auth.getSession().then(({ data }) => { const token = data?.session?.access_token; if (!token) return; fetch('/api/security/report-cheat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ trigger: 'AUTO_CLICKER_SKIP', clicksInWindow: skipClickTimestampsRef.current.length, windowSeconds: 10 }) }).catch(() => {}); }); return true;
+      } return false; }, [user]);
+  const nextTrack = useCallback((manual = true) => { if (manual && trackManualSkipForAntiCheat()) return;
     const stayPaused =
       manual &&
       settingsRef.current.keepPausedOnSongChange &&
@@ -976,13 +996,13 @@ resumeCheckTimer = window.setTimeout(() => {
       }
       return res.state;
     });
-  }, []);
+  }, [trackManualSkipForAntiCheat]);
 
   useEffect(() => {
     nextTrackRef.current = nextTrack;
   }, [nextTrack]);
 
-  const prevTrack = useCallback(() => {
+  const prevTrack = useCallback(() => { if (trackManualSkipForAntiCheat()) return;
     if (currentTime > 4) {
       setCurrentTime(0);
       ytPlayerRef.current?.seekTo(0, true);
@@ -998,7 +1018,7 @@ resumeCheckTimer = window.setTimeout(() => {
       setIsPlaying(!stayPaused);
       return res.state;
     });
-  }, [currentTime]);
+  }, [currentTime, trackManualSkipForAntiCheat]);
 
   const seekTo = useCallback((seconds: number) => {
     const clamped = Math.max(0, seconds);
