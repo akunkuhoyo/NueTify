@@ -163,8 +163,7 @@ const [broadcastNotice, setBroadcastNotice] = useState<string | null>(null);
     if (!accessToken) return;
     setStatusMsg('');
     setSubmitting(true);
-    const res = await fetch('/api/admin', {
-      method: 'POST',
+      try {   const res = await fetch('/api/admin', { method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${accessToken}`,
@@ -183,8 +182,8 @@ const [broadcastNotice, setBroadcastNotice] = useState<string | null>(null);
           : 'Maintenance Mode NONAKTIF — aplikasi kembali online & update broadcast aktif.'
       );
       await loadDashboard(accessToken);
-    }
-    setSubmitting(false);
+    } else { const errData = await res.json().catch(() => null); setStatusMsg('Gagal mengubah maintenance: ' + (errData?.error || res.status)); } } catch (err) { setStatusMsg('Gagal mengubah maintenance: ' + (err instanceof Error ? err.message : 'Unknown error')); } finally {
+    setSubmitting(false); }
   };
 const handleBroadcastAppUpdate = async () => {
 if (!accessToken || broadcastingUpdate) return;
