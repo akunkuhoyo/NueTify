@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     const clicksInWindow = Number(body.clicksInWindow || 0);
     const windowSeconds = Number(body.windowSeconds || 0);
 
-    if (!Number.isFinite(clicksInWindow) || clicksInWindow < 10) {
+    if (!Number.isFinite(clicksInWindow) || clicksInWindow < 25 || windowSeconds > 10) {
       return NextResponse.json({ error: 'Threshold not met' }, { status: 400 });
     }
 
