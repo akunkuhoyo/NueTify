@@ -33,154 +33,278 @@ function calcHistoryStats(history: unknown): { totalSeconds: number; totalPlays:
         rec?.duration ??
         180
     );
-    totalSeconds += Number.isFinite(sec) && sec > 0 ? sec : 180;
+    totalSeconds += Number.isFinite(sec) && sec > 0 ? Math.min(sec, 3600) : 180;
   }
-  return {
-    totalSeconds: Math.max(1, Math.floor(totalSeconds)),
-    totalPlays: history.length,
-  };
+  return { totalSeconds: Math.round(totalSeconds), totalPlays: history.length };
 }
-function pickLeaderboardName(rawName: string | undefined, authInfo?: { emailPrefix: string; metaName: string; metaAvatar: string }): string { const trimmed = (rawName || '').trim(); if (authInfo) { if (trimmed && trimmed.toLowerCase() !== authInfo.emailPrefix) return trimmed; if (authInfo.metaName) return authInfo.metaName; if (trimmed && trimmed.toLowerCase() === authInfo.emailPrefix) return 'Pengguna NueTify'; } return trimmed || 'Pengguna NueTify'; }
 
-export async function GET() {
+function getSupabaseClients() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !anonKey) {
-    return NextResponse.json({ entries: [] });
-  }
+  if (!url || !anonKey) return null;
+  const anon = createClient(url, anonKey, { auth: { persistSession: false } });
+  const admin = serviceKey ? createClient(url, serviceKey, { auth: { persistSession: false } }) : null;
+  return { anon, admin };
+}
 
-  const byUser = new Map<string, LeaderboardRow>();
-const authMap = new Map<string, { emailPrefix: string; metaName: string; metaAvatar: string; customAvatar: string }>();
-  const profMap = new Map<string, { display_name: string; avatar_url: string }>();
-  // 1. Coba baca tabel listening_leaderboard menggunakan anonKey (publik RLS)
+export async function GET(req: NextRequest) {
   try {
-    const anonClient = createClient(url, anonKey, { auth: { persistSession: false } });
-    const { data } = await anonClient
-      .from('listening_leaderboard')
-      .select('user_id, display_name, avatar_url, total_seconds, total_plays')
-      .gte('total_seconds', 60)
-      .order('total_seconds', { ascending: false })
-      .limit(50);
-    if (Array.isArray(data)) {
-      for (const row of data as LeaderboardRow[]) {
-        byUser.set(row.user_id, row);
-      }
-    }
-  } catch {
-    // ignore
-  }
-  
-  
-  // 2. Jika serviceKey tersedia dan valid, gabungkan juga dari user_music_data + user_profiles
-  let overrides: Record<string, { total_seconds?: number; total_plays?: number }> = {}; const bannedUserIds = new Set<string>(); if (serviceKey) {
-    try {
-      const admin = createClient(url, serviceKey, { auth: { persistSession: false } });
-      const [{ data: musicRows }, { data: profileRows }, authListRes, { data: overrideRow }, { data: banRows }] = await Promise.all([
-        admin.from('user_music_data').select('user_id, data').limit(200),
-        admin.from('user_profiles').select('id, display_name, avatar_url').limit(200), admin.auth.admin.listUsers({ perPage: 200 }).catch(() => ({ data: { users: [] } })), admin.from('app_config').select('value').eq('key', 'leaderboard_overrides').maybeSingle(), admin.from('user_bans').select('user_id, is_active, expires_at').eq('is_active', true),
-      ]); for (const u of authListRes?.data?.users || []) { const emailPrefix = (u.email || '').split('@')[0].trim().toLowerCase(); const metaName = String(u.user_metadata?.display_name || u.user_metadata?.full_name || u.user_metadata?.name || '').trim(); const metaAvatar = String(u.user_metadata?.avatar_url || u.user_metadata?.picture || '').trim(); const customAvatar = String(u.user_metadata?.custom_avatar_url || '').trim(); authMap.set(u.id, { emailPrefix, metaName, metaAvatar, customAvatar }); }
-            if (Array.isArray(banRows)) { const nowMs = Date.now(); for (const b of banRows as Array<{ user_id?: string; is_active?: boolean; expires_at?: string | null }>) { if (b.user_id && b.is_active === true && (!b.expires_at || new Date(b.expires_at).getTime() > nowMs)) { bannedUserIds.add(b.user_id); } } }
-      if (Array.isArray(profileRows)) {
-        for (const p of profileRows as Array<{ id: string; display_name?: string; avatar_url?: string }>) {
-          profMap.set(p.id, {
-            display_name: p.display_name || 'Pengguna NueTify',
-            avatar_url: p.avatar_url || '',
-          });
-        }
-      }
-      if (Array.isArray(musicRows)) {
-        for (const m of musicRows as Array<{ user_id: string; data?: { history?: unknown } }>) {
-          const stats = calcHistoryStats(m.data?.history);
-          if (stats.totalSeconds < 60) continue;
-          const prof = profMap.get(m.user_id);
-          const existing = byUser.get(m.user_id);
-          if (!existing || stats.totalSeconds > existing.total_seconds || stats.totalPlays > existing.total_plays) {
-            byUser.set(m.user_id, {
-              user_id: m.user_id,
-              display_name: prof?.display_name || existing?.display_name || 'Pengguna NueTify',
-              avatar_url: prof?.avatar_url || existing?.avatar_url || '',
-              total_seconds: Math.max(existing?.total_seconds || 0, stats.totalSeconds),
-              total_plays:Math.max(existing?.total_plays || 0,  stats.totalPlays),
-          is_verified: m.user_id === 'ebc0b783-4ebd-44b2-89de-990c57cfd297',
-            });
+    const clients = getSupabaseClients();
+    if (!clients) return NextResponse.json({ entries: [] });
+    const { anon, admin } = clients;
+    const db = admin || anon;
+
+    const bannedUserIds = new Set<string>();
+    if (admin) {
+      const { data: banRows } = await admin
+        .from('user_bans')
+        .select('user_id, is_active, banned_until')
+        .eq('is_active', true);
+      if (Array.isArray(banRows)) {
+        const nowMs = Date.now();
+        for (const b of banRows as Array<{ user_id?: string; is_active?: boolean; banned_until?: string | null }>) {
+          if (b.user_id && b.is_active === true && (!b.banned_until || new Date(b.banned_until).getTime() > nowMs)) {
+            bannedUserIds.add(b.user_id);
           }
         }
-      } overrides = (overrideRow?.value && typeof overrideRow.value === 'object' ? overrideRow.value : {}) as Record<string, { total_seconds?: number; total_plays?: number }>;
-      for (const [uid, ov] of Object.entries(overrides)) { if (!ov || typeof ov !== 'object') continue; const ovSec = Number(ov.total_seconds); const ovPlay = Number(ov.total_plays); const safeSec = Number.isFinite(ovSec) && ovSec >= 0 ? Math.floor(ovSec) : undefined; const safePlay = Number.isFinite(ovPlay) && ovPlay >= 0 ? Math.floor(ovPlay) : undefined; const prev = byUser.get(uid); if (prev) { byUser.set(uid, { ...prev, total_seconds: safeSec !== undefined ? safeSec : prev.total_seconds, total_plays: safePlay !== undefined ? safePlay : prev.total_plays }); } else if ((safeSec ?? 0) > 0 || (safePlay ?? 0) > 0) { const prof = profMap.get(uid); const authInfo = authMap.get(uid); byUser.set(uid, { user_id: uid, display_name: prof?.display_name || authInfo?.metaName || 'Pengguna NueTify', avatar_url: prof?.avatar_url || authInfo?.customAvatar || authInfo?.metaAvatar || '', total_seconds: safeSec ?? 0, total_plays: safePlay ?? 0, is_verified: uid === 'ebc0b783-4ebd-44b2-89de-990c57cfd297' }); } }
-    } catch {
-      // ignore if service key unavailable
+      }
     }
+
+    const { data: rows, error } = await db
+      .from('listening_leaderboard')
+      .select('user_id, display_name, avatar_url, total_seconds, total_plays')
+      .order('total_seconds', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error('[leaderboard GET] query error:', error.message);
+      return NextResponse.json({ entries: [], error: error.message });
+    }
+
+    const rowList = (rows || []) as Array<{
+      user_id: string;
+      display_name: string | null;
+      avatar_url: string | null;
+      total_seconds: number | null;
+      total_plays: number | null;
+    }>;
+
+    const userIds = rowList.map((r) => r.user_id).filter(Boolean);
+    const profileMap = new Map<string, { display_name?: string | null; avatar_url?: string | null }>();
+    if (userIds.length > 0) {
+      const { data: profiles } = await db
+        .from('user_profiles')
+        .select('user_id, display_name, avatar_url')
+        .in('user_id', userIds);
+      if (Array.isArray(profiles)) {
+        for (const p of profiles as Array<{ user_id: string; display_name?: string | null; avatar_url?: string | null }>) {
+          profileMap.set(p.user_id, p);
+        }
+      }
+    }
+
+    const verifiedUserIds = new Set<string>(['ebc0b783-4ebd-44b2-89de-990c57cfd297']);
+    const authHeader = req.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.slice(7).trim();
+      if (token) {
+        const { data: { user } } = await anon.auth.getUser(token);
+        if (user?.id) {
+          const isEmailVerified = Boolean(user.email_confirmed_at || user.confirmed_at);
+          if (isEmailVerified) verifiedUserIds.add(user.id);
+        }
+      }
+    }
+
+    const entries: LeaderboardRow[] = rowList
+      .filter((row) => {
+        if (!row.user_id) return false;
+        if (bannedUserIds.has(row.user_id)) return false;
+        const sec = Number(row.total_seconds || 0);
+        const plays = Number(row.total_plays || 0);
+        return sec > 0 || plays > 0;
+      })
+      .map((row) => {
+        const prof = profileMap.get(row.user_id);
+        const rawName = (prof?.display_name || row.display_name || '').trim();
+        const isValidName =
+          rawName.length > 0 &&
+          rawName.toLowerCase() !== 'undefined' &&
+          rawName.toLowerCase() !== 'null' &&
+          !rawName.includes('@');
+        const displayName = isValidName ? rawName : 'Pengguna NueTify';
+        const avatarUrl = (prof?.avatar_url || row.avatar_url || '').trim();
+        return {
+          user_id: row.user_id,
+          display_name: displayName,
+          avatar_url: avatarUrl,
+          total_seconds: Number(row.total_seconds || 0),
+          total_plays: Number(row.total_plays || 0),
+          is_verified: verifiedUserIds.has(row.user_id),
+        };
+      });
+
+    return NextResponse.json({ entries });
+  } catch (err) {
+    console.error('[leaderboard GET] unexpected error:', err);
+    return NextResponse.json({ entries: [] });
   }
-
-  const entries = Array.from(byUser.values()).filter((row) => { if (bannedUserIds.has(row.user_id)) return false; const ov = overrides[row.user_id]; const hasOverride = Boolean(ov && typeof ov === 'object' && ((Number(ov.total_seconds) > 0) || (Number(ov.total_plays) > 0))); return row.total_seconds >= 60 || hasOverride; })
-    .sort((a, b) => b.total_seconds - a.total_seconds)
-    .slice(0, 50)
-    .map((row) => { const authInfo = authMap.get(row.user_id); const profileName = profMap.get(row.user_id)?.display_name; const preferredName = profileName && profileName !== 'Pengguna NueTify' ? profileName : row.display_name; return {
-      ...row, display_name: pickLeaderboardName(preferredName, authInfo), avatar_url:profMap.get(row.user_id)?.avatar_url || authInfo?.customAvatar ||  row.avatar_url || authInfo?.metaAvatar || '',
-      is_verified: row.user_id === 'ebc0b783-4ebd-44b2-89de-990c57cfd297',
-    }; });
-
-  return NextResponse.json({ entries });
 }
 
 export async function POST(req: NextRequest) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) {
-    return NextResponse.json({ ok: false, error: 'Missing Supabase env' }, { status: 500 });
-  }
+  try {
+    const clients = getSupabaseClients();
+    if (!clients) return NextResponse.json({ error: 'Not configured' }, { status: 500 });
+    const { anon, admin } = clients;
 
-  const authHeader = req.headers.get('authorization') || '';
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  if (!token) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  }
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const token = authHeader.slice(7).trim();
+    const { data: { user: u }, error: userErr } = await anon.auth.getUser(token);
+    if (userErr || !u) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-  const body = (await req.json().catch(() => ({}))) as {
-    totalSeconds?: number;
-    totalPlays?: number;
-    displayName?: string;
-    avatarUrl?: string;
-  };
+    if (admin) {
+      const { data: banRow } = await admin
+        .from('user_bans')
+        .select('is_active, banned_until')
+        .eq('user_id', u.id)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (banRow && banRow.is_active === true && (!banRow.banned_until || new Date(banRow.banned_until).getTime() > Date.now())) {
+        return NextResponse.json({ error: 'Account banned' }, { status: 403 });
+      }
+    }
 
-  const userClient = createClient(url, anonKey, {
-    auth: { persistSession: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
+    const body = await req.json();
+    let totalSeconds = Math.max(0, Number(body?.total_seconds || 0));
+    let totalPlays = Math.max(0, Number(body?.total_plays || 0));
+    const hasAdminOverride = Number(body?.total_seconds) >= 0 && body?.admin_override === true;
+    if (body?.history && !hasAdminOverride) {
+      const calc = calcHistoryStats(body.history);
+      totalSeconds = Math.max(totalSeconds, calc.totalSeconds);
+      totalPlays = Math.max(totalPlays, calc.totalPlays);
+    }
 
-  const { data: userData, error: userErr } = await userClient.auth.getUser(token);
-  if (userErr || !userData?.user) {
-    return NextResponse.json({ ok: false, error: 'Invalid session' }, { status: 401 });
-  }
+    const db = admin || anon;
+    const { data: existing } = await db
+      .from('listening_leaderboard')
+      .select('total_seconds, total_plays, updated_at')
+      .eq('user_id', u.id)
+      .maybeSingle();
+    const { data: existingProfile } = await db
+      .from('user_profiles')
+      .select('display_name, avatar_url, updated_at')
+      .eq('user_id', u.id)
+      .maybeSingle();
 
-  const u = userData.user;
-  const rawTotalSeconds = Number(body.totalSeconds); const rawTotalPlays = Number(body.totalPlays); if (!Number.isFinite(rawTotalSeconds) || rawTotalSeconds < 0 || !Number.isFinite(rawTotalPlays) || rawTotalPlays < 0) { return NextResponse.json({ ok: false, error: 'Invalid stats' }, { status: 400 }); } let totalSeconds = Math.floor(rawTotalSeconds);
-  let totalPlays = Math.floor(rawTotalPlays);
-  const emailPrefix = (u.email || '').split('@')[0].trim().toLowerCase();
-  const metaName = String(u.user_metadata?.display_name || u.user_metadata?.full_name || u.user_metadata?.name || '').trim();
-  const rawBodyName = (body.displayName || '').trim();
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''; const admin = serviceKey ? createClient(url, serviceKey, { auth: { persistSession: false } }) : null; let hasAdminOverride = false; let existingProfile: { display_name?: string | null; avatar_url?: string | null } | null = null;
-  if (admin) { const { data: banRows } = await admin.from('user_bans').select('is_active, expires_at').eq('user_id', u.id).eq('is_active', true); if (Array.isArray(banRows) && banRows.some((b) => b.is_active === true && (!b.expires_at || new Date(b.expires_at).getTime() > Date.now()))) { return NextResponse.json({ error: 'Account banned' }, { status: 403 }); } const [{ data: existing }, { data: prof }, { data: overrideRow }] = await Promise.all([ admin.from('listening_leaderboard').select('total_seconds, total_plays, updated_at').eq('user_id', u.id).maybeSingle(), admin.from('user_profiles').select('display_name, avatar_url').eq('id', u.id).maybeSingle(), admin.from('app_config').select('value').eq('key', 'leaderboard_overrides').maybeSingle() ]); existingProfile = prof; const overrides = (overrideRow?.value && typeof overrideRow.value === 'object' ? overrideRow.value : {}) as Record<string, { total_seconds?: number; total_plays?: number }>; const adminOv = overrides[u.id]; if (adminOv && typeof adminOv === 'object') { hasAdminOverride = true; if (Number.isFinite(Number(adminOv.total_seconds)) && Number(adminOv.total_seconds) >= 0) totalSeconds = Math.floor(Number(adminOv.total_seconds)); if (Number.isFinite(Number(adminOv.total_plays)) && Number(adminOv.total_plays) >= 0) totalPlays = Math.floor(Number(adminOv.total_plays)); } else { const prevMs = existing?.updated_at ? new Date(existing.updated_at).getTime() : NaN; const elapsedSec = Number.isFinite(prevMs) ? Math.max(60, Math.floor((Date.now() - prevMs) / 1000)) : 3600; const maxAllowedSeconds = (existing?.total_seconds || 0) + Math.max(900, Math.floor(elapsedSec * 2.5)); const maxAllowedPlays = (existing?.total_plays || 0) + Math.max(15, Math.ceil(elapsedSec / 20)); totalSeconds = Math.min(totalSeconds, maxAllowedSeconds); totalPlays = Math.min(totalPlays, maxAllowedPlays); } }
-  if (totalSeconds < 60 && !hasAdminOverride) { return NextResponse.json({ ok: true, skipped: true }); } const profileDisplayName = String((existingProfile as { display_name?: string } | null)?.display_name || '').trim(); const customMetaName = String(u.user_metadata?.custom_display_name || '').trim(); const displayName = (profileDisplayName && profileDisplayName !== 'Pengguna NueTify' && profileDisplayName.toLowerCase() !== emailPrefix ? profileDisplayName : '') || (rawBodyName && rawBodyName.toLowerCase() !== emailPrefix ? rawBodyName : '') || (customMetaName && customMetaName.toLowerCase() !== emailPrefix ? customMetaName : '') || (metaName && metaName.toLowerCase() !== emailPrefix ? metaName : '') || 'Pengguna NueTify';const avatarUrl =
-    String(existingProfile?.avatar_url || '').trim() || (body.avatarUrl || '').trim() ||
-    String(u.user_metadata?.custom_avatar_url || u.user_metadata?.avatar_url || u.user_metadata?.picture || '');
+    const isDeveloper =
+      u.id === 'ebc0b783-4ebd-44b2-89de-990c57cfd297' ||
+      u.email?.toLowerCase() === 'drevviann@gmail.com';
+    const existingSeconds = existing?.total_seconds || 0;
+    const existingPlays = existing?.total_plays || 0;
+    const rawSeconds = totalSeconds;
+    const rawPlays = totalPlays;
 
-  const { error: upsertErr } = await (admin || userClient).from('listening_leaderboard').upsert(
-    {
-      user_id: u.id,
-      display_name: displayName,
-      avatar_url: avatarUrl,
+    if (hasAdminOverride) {
+      totalSeconds = Math.max(0, Number(body.total_seconds || 0));
+      totalPlays = Math.max(0, Number(body.total_plays || 0));
+    } else {
+      const prevMs = existing?.updated_at ? new Date(existing.updated_at).getTime() : NaN;
+      const elapsedSec = Number.isFinite(prevMs) ? Math.max(60, Math.floor((Date.now() - prevMs) / 1000)) : 3600;
+      const deltaSeconds = Math.max(0, rawSeconds - existingSeconds);
+      const deltaPlays = Math.max(0, rawPlays - existingPlays);
+
+      if (!isDeveloper && ((deltaPlays >= 12 && elapsedSec <= 120) || (deltaSeconds > Math.max(1800, elapsedSec * 4)))) {
+        if (admin) {
+          const bannedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          const reason =
+            'Auto-Ban 24 Jam (Sistem Anti-Cheat NueTify): Terdeteksi lonjakan tidak wajar pada statistik waktu dengar/jumlah putar Leaderboard (indikasi auto-clicker atau manipulasi sistem).';
+          const banDisplayName =
+            (existingProfile?.display_name && String(existingProfile.display_name).trim()) || 'Pengguna NueTify';
+
+          await admin.from('user_bans').upsert(
+            {
+              user_id: u.id,
+              email: u.email || '',
+              display_name: banDisplayName,
+              reason,
+              banned_until: bannedUntil,
+              is_active: true,
+              banned_by: 'SYSTEM_ANTI_CHEAT',
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id' }
+          );
+
+          await admin.from('listening_leaderboard').delete().eq('user_id', u.id);
+
+          await admin.from('admin_audit_logs').insert({
+            admin_email: 'SYSTEM_ANTI_CHEAT',
+            action: 'AUTO_BAN_CHEAT_24H',
+            target_user_id: u.id,
+            target_email: u.email || '',
+            details: {
+              deltaSeconds,
+              deltaPlays,
+              elapsedSec,
+              banned_until: bannedUntil,
+              reason,
+            },
+          });
+        }
+        return NextResponse.json({ error: 'Auto-banned for 24 hours', banned: true }, { status: 403 });
+      }
+
+      const maxAllowedSeconds = existingSeconds + Math.max(240, Math.floor(elapsedSec * 1.5));
+      const maxAllowedPlays = existingPlays + Math.max(4, Math.ceil(elapsedSec / 30));
+      totalSeconds = Math.min(totalSeconds, maxAllowedSeconds);
+      totalPlays = Math.min(totalPlays, maxAllowedPlays);
+    }
+
+    const rawBodyName = typeof body?.display_name === 'string' ? body.display_name.trim() : '';
+    const profileDisplayName =
+      (existingProfile?.display_name && String(existingProfile.display_name).trim()) ||
+      (rawBodyName && rawBodyName.toLowerCase() !== 'undefined' && rawBodyName.toLowerCase() !== 'null' && !rawBodyName.includes('@')
+        ? rawBodyName
+        : '') ||
+      (typeof u.user_metadata?.full_name === 'string' ? u.user_metadata.full_name.trim() : '') ||
+      (typeof u.user_metadata?.name === 'string' ? u.user_metadata.name.trim() : '') ||
+      'Pengguna NueTify';
+
+    const avatarUrl =
+      (existingProfile?.avatar_url && String(existingProfile.avatar_url).trim()) ||
+      (typeof body?.avatar_url === 'string' ? body.avatar_url.trim() : '') ||
+      (typeof u.user_metadata?.avatar_url === 'string' ? u.user_metadata.avatar_url.trim() : '') ||
+      '';
+
+    const { error: upsertErr } = await db.from('listening_leaderboard').upsert(
+      {
+        user_id: u.id,
+        display_name: profileDisplayName,
+        avatar_url: avatarUrl,
+        total_seconds: totalSeconds,
+        total_plays: totalPlays,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+
+    if (upsertErr) {
+      return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      ok: true,
       total_seconds: totalSeconds,
       total_plays: totalPlays,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id' }
-  );
-
-  if (upsertErr) {
-    return NextResponse.json({ ok: false, error: upsertErr.message }, { status: 400 });
+    });
+  } catch (err) {
+    console.error('[leaderboard POST] unexpected error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true });
 }
