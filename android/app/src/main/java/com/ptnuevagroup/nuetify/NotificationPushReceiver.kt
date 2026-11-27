@@ -20,11 +20,32 @@ class NotificationPushReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         Thread {
             try {
+                pollSync(context.applicationContext)
+            } finally {
+                pendingResult.finish()
+            }
+        }.start()
+    }
+
+    companion object {
+        private const val PREFS_NAME = "nuetify_push_prefs"
+        private const val KEY_LAST_NOTIF_ID = "last_notif_id"
+        private const val CHANNEL_ID = "nuetify_broadcast_v2"
+        private const val REQUEST_CODE_ALARM = 4201
+
+        fun pollNow(context: Context) {
+            Thread { pollSync(context) }.start()
+        }
+
+        fun pollSync(context: Context) {
+            try {
                 val endpoint = listOf("https:", "", "nuetify.vercel.app", "api", "notifications", "latest").joinToString("/")
                 val conn = URL(endpoint).openConnection() as HttpURLConnection
                 conn.connectTimeout = 8000
                 conn.readTimeout = 8000
                 conn.requestMethod = "GET"
+                conn.useCaches = false
+                conn.setRequestProperty("Cache-Control", "no-cache")
                 val code = conn.responseCode
                 if (code in 200..299) {
                     val text = conn.inputStream.bufferedReader().use { it.readText() }
@@ -34,39 +55,26 @@ class NotificationPushReceiver : BroadcastReceiver() {
                         val title = notif.optString("title", "NueTify")
                         val body = notif.optString("body", "")
                         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                        val lastId = prefs.getString(KEY_LAST_ID, "") ?: ""
+                        val lastId = prefs.getString(KEY_LAST_NOTIF_ID, "") ?: ""
                         if (id.isNotEmpty() && id != lastId) {
+                            prefs.edit().putString(KEY_LAST_NOTIF_ID, id).apply()
                             showNotification(context, id, title, body)
                         }
                     }
                 }
                 conn.disconnect()
             } catch (_: Exception) {
-            } finally {
-                pendingResult.finish()
             }
-        }.start()
-    }
-
-    companion object {
-        const val ACTION_POLL = "com.ptnuevagroup.nuetify.ACTION_POLL_NOTIFICATIONS"
-        const val CHANNEL_ID = "nuetify_broadcast"
-        const val PREFS_NAME = "nuetify_push_prefs"
-        const val KEY_LAST_ID = "last_notif_id"
+        }
 
         fun scheduleNext(context: Context) {
             try {
                 val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
-                val intent = Intent(context, NotificationPushReceiver::class.java).apply {
-                    action = ACTION_POLL
-                }
-                val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-                } else {
-                    PendingIntent.FLAG_UPDATE_CURRENT
-                }
-                val pendingIntent = PendingIntent.getBroadcast(context, 1001, intent, flags)
-                val triggerAt = System.currentTimeMillis() + 60_000L
+                val intent = Intent(context, NotificationPushReceiver::class.java)
+                val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                    (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+                val pendingIntent = PendingIntent.getBroadcast(context, REQUEST_CODE_ALARM, intent, flags)
+                val triggerAt = System.currentTimeMillis() + 30_000L
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent)
                 } else {
@@ -74,40 +82,43 @@ class NotificationPushReceiver : BroadcastReceiver() {
                 }
             } catch (_: Exception) {
             }
+            PushNotificationJobService.schedule(context)
         }
 
         fun showNotification(context: Context, id: String, title: String, body: String) {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            prefs.edit().putString(KEY_LAST_ID, id).apply()
-
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager ?: return
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val channel = NotificationChannel(
                     CHANNEL_ID,
-                    "Notifikasi NueTify",
+                    "NueTify Broadcast",
                     NotificationManager.IMPORTANCE_HIGH
-                )
+                ).apply {
+                    description = "Notifikasi broadcast real-time dari NueTify"
+                    enableVibration(true)
+                    enableLights(true)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                }
                 manager.createNotificationChannel(channel)
             }
 
             val openIntent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             }
-            val piFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            } else {
-                PendingIntent.FLAG_UPDATE_CURRENT
-            }
-            val contentIntent = PendingIntent.getActivity(context, id.hashCode(), openIntent, piFlags)
+            val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+                (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+            val pendingIntent = PendingIntent.getActivity(context, id.hashCode(), openIntent, flags)
 
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(title)
+                .setContentTitle(title.ifBlank { "NueTify" })
                 .setContentText(body)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(body))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setAutoCancel(true)
-                .setContentIntent(contentIntent)
+                .setContentIntent(pendingIntent)
                 .build()
 
             manager.notify(id.hashCode(), notification)
