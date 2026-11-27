@@ -119,7 +119,8 @@ export function MobileBottomTabs() {
     playTrack,
     settings,
   } = useMusic();
-
+  const { profile, isGuest } = useAuth();
+  
   const isLiquidGlass = settings.dockStyle === 'liquid-glass';
 
   const [isScrolledCompact, setIsScrolledCompact] = useState(false);
@@ -331,11 +332,11 @@ export function MobileBottomTabs() {
       <div
         data-testid="mobile-default-dock"
         data-dock-style="default"
-        className="lg:hidden fixed inset-x-0 bottom-0 z-40"
+        className="lg:hidden fixed inset-x-0 bottom-0 z-40" pointer-events-none"
       >
         {/* Lightweight Solid MiniPlayer Strip above bottom nav */}
         {currentTrack && (
-          <div className="px-2.5 pb-2">
+          <div className="px-2.5 pb-2 pointer-events-auto">
             <div className="relative max-w-md mx-auto h-[56px] rounded-[18px] metro-surface shadow-lg px-2.5 flex items-center gap-2.5 overflow-hidden">
               <div className="pointer-events-none absolute inset-x-3 bottom-0 h-[2px] bg-black/5 dark:bg-white/10 rounded-full overflow-hidden">
                 <div
@@ -403,52 +404,57 @@ export function MobileBottomTabs() {
           </div>
         )}
 
-        {/* Solid Material 3 Bottom Navigation Bar */}
-        <nav
-          aria-label="Mobile navigation"
-          className="bg-[var(--m3-surface)] border-t border-[var(--m3-border)] pb-[env(safe-area-inset-bottom)]"
-        >
-          <div className="max-w-md mx-auto h-[64px] grid grid-cols-4 items-center px-2">
-            {MOBILE_TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id && !detailTarget;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => handleSelectTab(tab.id)}
-                  className="flex flex-col items-center justify-center gap-1 h-full active:scale-95 transition-transform"
-                >
-                  <span
-                    className={cn(
-                      'w-14 h-8 rounded-full flex items-center justify-center transition-colors',
-                      isActive
-                        ? 'bg-[var(--m3-primary-container)] text-[var(--m3-on-primary-container)]'
-                        : 'text-slate-600 dark:text-slate-300'
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        'w-[20px] h-[20px]',
-                        isActive ? 'stroke-[2.3]' : 'stroke-[1.9]'
-                      )}
-                    />
-                  </span>
-                  <span
-                    className={cn(
-                      'text-[11px] leading-none tracking-tight',
-                      isActive
-                        ? 'font-bold text-slate-900 dark:text-white'
-                        : 'font-medium text-slate-500 dark:text-slate-400'
-                    )}
-                  >
-                    {tab.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </nav>
+  <div className="px-3 pt-1.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] flex items-center gap-2.5 pointer-events-auto">
+    <nav
+aria-label="Mobile navigation"
+className="flex-1 h-[62px] rounded-full bg-[#141418]/80 backdrop-blur-2xl border border-white/15 shadow-[0_10px_30px_rgba(0,0,0,0.45)] p-1.5 grid grid-cols-4 items-center gap-1"
+>
+      {MOBILE_TABS.map((tab) => {
+const Icon = tab.icon;
+const isActive = activeTab === tab.id && !detailTarget;
+return (
+<button
+key={tab.id}
+type="button"
+onClick={() => handleSelectTab(tab.id)}
+aria-current={isActive ? 'page' : undefined}
+className={cn(
+'h-full rounded-full flex flex-col items-center justify-center gap-0.5 transition-all active:scale-95',
+isActive
+? 'bg-white/[0.15] border border-white/15 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]'
+: 'border border-transparent text-white/60 hover:text-white/90'
+)}
+>
+<Icon className="w-[20px] h-[20px]" strokeWidth={isActive ? 2.4 : 1.9} />
+<span className="text-[10px] font-semibold leading-tight tracking-tight">
+{tab.label}
+</span>
+</button>
+);
+})}
+</nav><button
+type="button"
+onClick={() => {
+setActiveTab('settings');
+openDetail(null);
+}}
+aria-label="Buka Pengaturan"
+aria-current={activeTab === 'settings' && !detailTarget ? 'page' : undefined}
+className={cn(
+'w-[62px] h-[62px] shrink-0 rounded-full bg-[#141418]/80 backdrop-blur-2xl border shadow-[0_10px_30px_rgba(0,0,0,0.45)] flex items-center justify-center active:scale-95 transition-all',
+activeTab === 'settings' && !detailTarget
+? 'border-white/50 ring-2 ring-white/30'
+: 'border-white/15 hover:border-white/30'
+)}
+>
+<UserAvatar
+src={profile?.avatar_url}
+name={profile?.display_name || (isGuest ? 'Tamu' : 'NueTify')}
+size={46}
+/>
+</button>
+</div>
+    
       </div>
     );
   }
