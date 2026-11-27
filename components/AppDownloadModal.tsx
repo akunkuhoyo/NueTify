@@ -14,6 +14,7 @@ interface ReleaseInfo {
 type DownloadState = 'idle' | 'downloading' | 'installing' | 'completed' | 'error';
 
 type NativeBridge = {
+  getAppVersion?: () => string;
   getAppVersionName?: () => string;
   downloadAndInstallApk?: (apkUrl: string, version: string) => void;
   openDownloadsFolder?: () => void;
@@ -51,8 +52,38 @@ function extractBroadcastId(val: unknown): string | null {
   return null;
 }
 
+function compareVersions(a: string, b: string): number {
+  const pa = a.trim().replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = b.trim().replace(/^v/i, '').split('.').map((n) => parseInt(n, 10) || 0);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const va = pa[i] ?? 0;
+    const vb = pb[i] ?? 0;
+    if (va < vb) return -1;
+    if (va > vb) return 1;
+  }
+  return 0;
+}
+
+function getInstalledAndroidVersion(): string {
+  try {
+    const native = (window as unknown as { NueTifyNative?: NativeBridge }).NueTifyNative;
+    const nativeVer = native?.getAppVersion?.()?.trim();
+    if (nativeVer) return nativeVer;
+  } catch {
+    // ignore
+  }
+  if (typeof navigator !== 'undefined') {
+    const match = navigator.userAgent.match(/NueTifyAppVer\/([0-9.]+)/i);
+    if (match?.[1]) return match[1];
+  }
+  return '1.0.0';
+}
+
 export function AppDownloadModal() {
   const [open, setOpen] = useState(false);
+  const [installedVersion, setInstalledVersion] = useState<string>('1.0.0');
+  const [isForceUpdate, setIsForceUpdate] = useState<boolean>(false);
   const [isNative, setIsNative] = useState(false);
   const [release, setRelease] = useState<ReleaseInfo>(FALLBACK_RELEASE);
   const [downloadState, setDownloadState] = useState<DownloadState>('idle');
@@ -114,11 +145,26 @@ const nativeProgressRef = useRef(false);
     };
 
     const checkRelease = async (forceOpen = false) => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        setIsForceUpdate(false);
+        delete (window as unknown as { __nuetifyForceUpdateActive?: boolean }).__nuetifyForceUpdateActive;
+        return;
+      }
       const data = await fetchLatestRelease();
       if (cancelled || !data) return;
 
       const latestVersion = normalizeVersion(data.version);
-      const installedVersion = normalizeVersion(nativeBridge?.getAppVersionName?.());
+      const curVer = getInstalledAndroidVersion();
+      setInstalledVersion(curVer);
+      const outdated = Boolean(data?.version) && compareVersions(curVer, data.version) < 0;
+      if (outdated) {
+        setIsForceUpdate(true);
+        setOpen(true);
+        (window as unknown as { __nuetifyForceUpdateActive?: boolean }).__nuetifyForceUpdateActive = true;
+        return;
+      }
+      setIsForceUpdate(false);
+      delete (window as unknown as { __nuetifyForceUpdateActive?: boolean }).__nuetifyForceUpdateActive;
 
       if (forceOpen) {
         setDownloadState('idle');
@@ -127,7 +173,8 @@ const nativeProgressRef = useRef(false);
         return;
       }
 
-      if (installedVersion && latestVersion && installedVersion === latestVersion) {
+      if (!outdated) {
+        setOpen(false);
         return;
       }
 
@@ -145,6 +192,12 @@ const nativeProgressRef = useRef(false);
       void checkRelease(true);
     };
     window.addEventListener('nuetify-check-update', onManualCheck);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void checkRelease(false);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     // Cek awal & dengarkan Supabase Realtime pada public.app_config untuk broadcast update
     const supabase = getSupabaseClient();
@@ -156,7 +209,7 @@ const nativeProgressRef = useRef(false);
       const lastSeen = localStorage.getItem('nuetify_last_update_broadcast');
       if (broadcastId !== lastSeen) {
         localStorage.setItem('nuetify_last_update_broadcast', broadcastId);
-        await fetchLatestRelease();
+          await checkRelease(true);
         if (!cancelled) {
           setDownloadState('idle');
           setDownloadPercent(0);
@@ -201,6 +254,8 @@ const nativeProgressRef = useRef(false);
     return () => {
       cancelled = true; if (fallbackTimerRef.current !== null) { window.clearInterval(fallbackTimerRef.current); fallbackTimerRef.current = null; }
       window.removeEventListener('nuetify-check-update', onManualCheck);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      delete (window as unknown as { __nuetifyForceUpdateActive?: boolean }).__nuetifyForceUpdateActive;
       delete (window as unknown as Record<string, unknown>).__nuetifyUpdateProgress;
       if (channel && supabase) {
         void supabase.removeChannel(channel);
@@ -209,6 +264,7 @@ const nativeProgressRef = useRef(false);
   }, []);
 
   const handleDismiss = () => {
+    if (isForceUpdate) return;
     const latestVersion = normalizeVersion(release.version);
     if (latestVersion) {
       localStorage.setItem('nuetify_dismissed_update_version', latestVersion);
@@ -249,6 +305,7 @@ const nativeProgressRef = useRef(false);
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
       <div className="relative w-full max-w-md rounded-2xl border border-[#C0C0C0]/25 bg-[#121212] p-6 shadow-2xl text-white">
+        {!isForceUpdate && (
         <button
           type="button"
           onClick={handleDismiss}
@@ -257,13 +314,14 @@ const nativeProgressRef = useRef(false);
         >
           <X className="w-4 h-4" />
         </button>
+        )}
 
         <div className="flex items-center gap-3 mb-4">
     <img src="/icon" alt="NueTify" className="w-11 h-11 rounded-2xl object-cover border border-[#C0C0C0]/25 shrink-0" />
           <div>
-            <h2 className="text-lg font-bold tracking-tight">Pembaruan Aplikasi NueTify</h2>
+            <h2 className="text-lg font-bold tracking-tight">{isForceUpdate ? 'Pembaruan Wajib' : 'Pembaruan Aplikasi NueTify'}</h2>
             <p className="text-xs text-[#A7A7A7]">
-              Versi {release.version}
+              {isForceUpdate ? `Versi Anda: v${installedVersion.replace(/^v/i, '')} → Terbaru: ${release.version}` : `Versi ${release.version}`}
               {release.fileSizeMb ? ` • ${release.fileSizeMb} MB` : ''}
             </p>
           </div>
@@ -324,6 +382,11 @@ const nativeProgressRef = useRef(false);
             <span>Buka Folder Download</span>
           </button>
         </div>
+        {isForceUpdate && (
+          <p className="mt-3 text-center text-xs text-[#A7A7A7]">
+            Perbarui aplikasi ke versi terbaru untuk melanjutkan penggunaan NueTify.
+          </p>
+        )}
       </div>
     </div>
   );
