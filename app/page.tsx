@@ -10,7 +10,7 @@ import { LibraryView } from '@/components/LibraryView';
 import { LiquidGlassFilterDefs } from '@/components/LiquidGlassSurface';
 import { MiniPlayer } from '@/components/MiniPlayer';
 import { MaintenanceGate } from '@/components/MaintenanceGate';
-import { MobileBottomTabs, MobileTopBar } from '@/components/MobileNav';
+import { MobileBottomTabs } from '@/components/MobileNav';
 import { MusicProvider, useMusic } from '@/components/MusicProvider';
 import { NowPlayingSheet } from '@/components/NowPlayingSheet';
 import { PlaylistPickerModal } from '@/components/PlaylistPickerModal';
@@ -57,10 +57,10 @@ function SonoraShell() {
       <Sidebar />
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <MobileTopBar />
+        
 
         <main
-          className={`flex-1 px-4 sm:px-8 pt-5 lg:pt-14 max-w-7xl w-full mx-auto pb-[calc(10rem+env(safe-area-inset-bottom))] ${
+          className={`flex-1 px-4 sm:px-8 pt-[calc(0.5rem+env(safe-area-inset-top))] lg:pt-14 max-w-7xl w-full mx-auto pb-[calc(10rem+env(safe-area-inset-bottom))] ${
             currentTrack ? 'lg:pb-32' : 'lg:pb-14'
           }`}
         >
