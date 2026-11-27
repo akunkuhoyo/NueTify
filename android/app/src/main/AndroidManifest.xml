@@ -43,6 +43,8 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
+        <service android:name=".PushNotificationJobService" android:permission="android.permission.BIND_JOB_SERVICE" android:exported="true" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
