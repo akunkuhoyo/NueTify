@@ -368,7 +368,13 @@ const nativeProgressRef = useRef(false);
               <p className="text-[11px] text-[#7A7A7A] truncate">{downloadFileName}</p>
             )}
           </div>
-        )}
+)}
+              {downloadState === 'error' && (
+              <div className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                Gagal mengunduh update secara langsung. Silakan tekan <strong>Update Sekarang</strong> untuk mencoba lagi atau gunakan tombol <strong>Gagal / Macet? Unduh via Browser</strong> di bawah.
+              </div>
+            )}
+  
 
         <div className="flex flex-col gap-2.5">
           <button
@@ -395,6 +401,14 @@ const nativeProgressRef = useRef(false);
             <FolderOpen className="w-4 h-4 text-[#C0C0C0]" />
             <span>Buka Folder Download</span>
           </button>
+<a
+  href={release.downloadUrl}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-[#C0C0C0]/20 bg-[#1A1A1A] text-[#C0C0C0] font-medium text-xs py-2.5 px-4 hover:bg-[#242424] hover:text-white transition-colors"
+>
+  <span>Gagal / Macet? Unduh via Browser</span>
+</a>
         </div>
         {isForceUpdate && (
           <p className="mt-3 text-center text-xs text-[#A7A7A7]">
