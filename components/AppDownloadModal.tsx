@@ -198,7 +198,11 @@ const nativeProgressRef = useRef(false);
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
-
+    const onFocus = () => {
+        void checkRelease(false);
+      };
+    window.addEventListener('focus', onFocus);
+    const pollInterval = window.setInterval(() => { if (navigator.onLine) void checkRelease(false); }, 15_000);
     // Cek awal & dengarkan Supabase Realtime pada public.app_config untuk broadcast update
     const supabase = getSupabaseClient();
     let channel: ReturnType<NonNullable<typeof supabase>['channel']> | null = null;
@@ -255,6 +259,8 @@ const nativeProgressRef = useRef(false);
       cancelled = true; if (fallbackTimerRef.current !== null) { window.clearInterval(fallbackTimerRef.current); fallbackTimerRef.current = null; }
       window.removeEventListener('nuetify-check-update', onManualCheck);
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onFocus);
+      window.clearInterval(pollInterval);
       delete (window as unknown as { __nuetifyForceUpdateActive?: boolean }).__nuetifyForceUpdateActive;
       delete (window as unknown as Record<string, unknown>).__nuetifyUpdateProgress;
       if (channel && supabase) {
@@ -262,7 +268,15 @@ const nativeProgressRef = useRef(false);
       }
     };
   }, []);
-
+  useEffect(() => {
+    if (!isForceUpdate) return;
+    const stopAllMusic = () => {
+      window.dispatchEvent(new Event('nuetify-force-stop'));
+      };
+    stopAllMusic();
+    const guardInterval = window.setInterval(stopAllMusic, 2000);
+    return () => window.clearInterval(guardInterval);
+    }, [isForceUpdate]);
   const handleDismiss = () => {
     if (isForceUpdate) return;
     const latestVersion = normalizeVersion(release.version);
@@ -303,7 +317,7 @@ const nativeProgressRef = useRef(false);
   const isBusy = downloadState === 'downloading' || downloadState === 'installing';
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
       <div className="relative w-full max-w-md rounded-2xl border border-[#C0C0C0]/25 bg-[#121212] p-6 shadow-2xl text-white">
         {!isForceUpdate && (
         <button
