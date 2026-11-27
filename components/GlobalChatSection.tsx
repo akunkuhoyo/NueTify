@@ -80,15 +80,18 @@ export function GlobalChatSection() {
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const prevCountRef = useRef(0);
-
+const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
+  const [cooldownSec, setCooldownSec] = useState(0);
+  const realtimeTimerRef = useRef<number | null>(null);
   const isDev = Boolean(
     user && (user.id === DEV_UID || (user.email || '').toLowerCase() === DEV_EMAIL)
   );
 
   useEffect(() => {
-    setMounted(true);
+    setMounted(true); try { const until = Number(localStorage.getItem(COOLDOWN_KEY) || 0); if (until > Date.now()) setCooldownSec(Math.ceil((until - Date.now()) / 1000)); } catch {}
   }, []);
-
+  useEffect(() => { if (cooldownSec <= 0) return; const t = window.setTimeout(() => setCooldownSec((s) => (s > 1 ? s - 1 : 0)), 1000); return () => window.clearTimeout(t); }, [cooldownSec]);
+  
   const fetchChat = useCallback(async () => {
     try {
       const res = await fetch('/api/global-chat', { cache: 'no-store' });
@@ -116,13 +119,13 @@ export function GlobalChatSection() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'global_chat_messages' },
         () => {
-          fetchChat();
+          if (realtimeTimerRef.current) window.clearTimeout(realtimeTimerRef.current); realtimeTimerRef.current = window.setTimeout(() => { fetchChat(); }, 350);
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (realtimeTimerRef.current) window.clearTimeout(realtimeTimerRef.current); supabase.removeChannel(channel);
     };
   }, [fetchChat]);
 
@@ -197,107 +200,13 @@ export function GlobalChatSection() {
     return data.session?.access_token ?? null;
   }, []);
 
-  const handleSend = useCallback(async () => {
-    const text = draft.trim();
-    if (!text || !user || sending) return;
+  
+    const handleSend = useCallback(async () => { const trimmed = draft.trim(); if (!user || !trimmed) return; if (cooldownSec > 0) { setErrorMsg(`Tunggu ${cooldownSec} detik sebelum mengirim pesan lagi.`); return; } setErrorMsg(null); const tempId = 'temp-' + Date.now(); const meta = (user.user_metadata || {}) as Record<string, string | undefined>; const tempMsg: ChatMessage = { id: tempId, user_id: user.id, display_name: meta.full_name || meta.name || user.email?.split('@')[0] || 'User', avatar_url: meta.avatar_url || meta.picture || null, is_developer: isDev, total_plays: 0, total_seconds: 0, content: trimmed, reply_to_id: replyTarget?.id || null, reply_to_name: replyTarget?.display_name || null, reply_to_content: replyTarget?.content || null, is_pinned: false, created_at: new Date().toISOString() }; setMessages((prev) => [...prev, tempMsg]); setLatest(tempMsg); setDraft(''); setReplyTarget(null); const until = Date.now() + 10_000; try { localStorage.setItem(COOLDOWN_KEY, String(until)); } catch {} setCooldownSec(10); requestAnimationFrame(() => { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight; }); try { const token = await getAccessToken(); if (!token) { setMessages((prev) => prev.filter((m) => m.id !== tempId)); setDraft(trimmed); setErrorMsg('Sesi habis, silakan login ulang'); return; } const res = await fetch('/api/global-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'send', content: trimmed, replyToId: tempMsg.reply_to_id }) }); const data = await res.json().catch(() => ({})); if (res.ok && data.message) { setMessages((prev) => prev.map((m) => (m.id === tempId ? data.message : m))); setLatest((l) => (l?.id === tempId ? data.message : l)); } else { setMessages((prev) => prev.filter((m) => m.id !== tempId)); setDraft(trimmed); if (data.retryAfter) setCooldownSec(Number(data.retryAfter)); setErrorMsg(data.error || 'Gagal mengirim pesan'); } } catch { setMessages((prev) => prev.filter((m) => m.id !== tempId)); setDraft(trimmed); setErrorMsg('Gagal mengirim pesan'); } }, [draft, user, cooldownSec, isDev, replyTarget, getAccessToken]);
 
-    setSending(true);
-    setErrorMsg(null);
-    try {
-      const token = await getAccessToken();
-      if (!token) {
-        setErrorMsg('Sesi login tidak ditemukan.');
-        return;
-      }
-
-      const res = await fetch('/api/global-chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          content: text,
-          replyToId: replyTarget?.id ?? null,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setErrorMsg(err.error || 'Gagal mengirim pesan.');
-        return;
-      }
-
-      setDraft('');
-      setReplyTarget(null);
-      await fetchChat();
-      requestAnimationFrame(() => {
-        if (listRef.current) {
-          listRef.current.scrollTop = listRef.current.scrollHeight;
-        }
-      });
-    } catch {
-      setErrorMsg('Gagal mengirim pesan.');
-    } finally {
-      setSending(false);
-    }
-  }, [draft, user, sending, getAccessToken, replyTarget, fetchChat]);
-
-  const handleDelete = useCallback(
-    async (messageId: string) => {
-      if (!user || busyId) return;
-      setBusyId(messageId);
-      setErrorMsg(null);
-      try {
-        const token = await getAccessToken();
-        if (!token) return;
-        const res = await fetch('/api/global-chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ action: 'delete', messageId }),
-        });
-        if (res.ok) {
-          if (replyTarget?.id === messageId) setReplyTarget(null);
-          await fetchChat();
-        }
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [user, busyId, getAccessToken, replyTarget, fetchChat]
-  );
+  const handleDelete = useCallback(async (messageId: string) => { if (!user) return; setErrorMsg(null); const prevMessages = messages; const prevPinned = pinned; setMessages((prev) => prev.filter((m) => m.id !== messageId)); setPinned((p) => (p?.id === messageId ? null : p)); if (replyTarget?.id === messageId) setReplyTarget(null); try { const token = await getAccessToken(); if (!token) { setMessages(prevMessages); setPinned(prevPinned); return; } const res = await fetch('/api/global-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'delete', messageId }) }); if (!res.ok) { const data = await res.json().catch(() => ({})); setMessages(prevMessages); setPinned(prevPinned); setErrorMsg(data.error || 'Gagal menghapus pesan'); } } catch { setMessages(prevMessages); setPinned(prevPinned); setErrorMsg('Gagal menghapus pesan'); } }, [user, messages, pinned, getAccessToken, replyTarget]);
 
   const handleTogglePin = useCallback(
-    async (msg: ChatMessage) => {
-      if (!isDev || busyId) return;
-      setBusyId(msg.id);
-      setErrorMsg(null);
-      try {
-        const token = await getAccessToken();
-        if (!token) return;
-        const res = await fetch('/api/global-chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            action: 'pin',
-            messageId: msg.id,
-            pinned: !msg.is_pinned,
-          }),
-        });
-        if (res.ok) {
-          await fetchChat();
-        }
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [isDev, busyId, getAccessToken, fetchChat]
+    async (msg: ChatMessage) => { const nextPinned = !msg.is_pinned; if (!isDev) return; setErrorMsg(null); setPinned(nextPinned ? { ...msg, is_pinned: true } : null); setMessages((prev) => prev.map((m) => ({ ...m, is_pinned: nextPinned ? m.id === msg.id : false }))); try { const token = await getAccessToken(); if (!token) { await fetchChat(); return; } const res = await fetch('/api/global-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'pin', messageId: msg.id, pinned: nextPinned }) }); if (!res.ok) await fetchChat(); } catch { await fetchChat(); } }, [isDev, getAccessToken, fetchChat]
   );
 
   const scrollToMessage = useCallback((id: string) => {
@@ -551,11 +460,11 @@ export function GlobalChatSection() {
                   <button
                     type="button"
                     onClick={handleSend}
-                    disabled={sending || !draft.trim()}
+                    disabled={cooldownSec > 0 || !draft.trim()}
                     aria-label="Kirim pesan"
                     className="w-10 h-10 rounded-full bg-[#C0C0C0] text-[#121212] flex items-center justify-center shrink-0 hover:bg-white transition-colors disabled:opacity-40"
                   >
-                    <Send className="w-4 h-4" />
+                    {cooldownSec > 0 ? <span className="text-xs font-bold">{cooldownSec}s</span> : <Send className="w-4 h-4" />}
                   </button>
                 </div>
               ) : (
