@@ -68,6 +68,15 @@ class MainActivity : AppCompatActivity() {
     private var desiredEqEnabled = false
     private var desiredBassBoostEnabled = false
     private var desiredLoudnessEnabled = false
+
+    private fun getInstalledAppVersion(): String {
+        return try {
+            val info = packageManager.getPackageInfo(packageName, 0)
+            info.versionName ?: "1.0.0"
+        } catch (_: Exception) {
+            "1.0.0"
+        }
+    }
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -98,7 +107,7 @@ class MainActivity : AppCompatActivity() {
             settings.databaseEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            settings.userAgentString = "${settings.userAgentString} NueTifyAndroid/1.3"
+            settings.userAgentString = "${settings.userAgentString} NueTifyAndroid/1.3 NueTifyAppVer/${getInstalledAppVersion()}"
             settings.cacheMode = if (isNetworkAvailable()) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(
@@ -404,6 +413,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     inner class NativeBridge {
+        @JavascriptInterface
+        fun getAppVersion(): String = getInstalledAppVersion()
         @JavascriptInterface
         fun showPushNotification(id: String, title: String, body: String) {
             NotificationPushReceiver.showNotification(this@MainActivity, id, title, body)
