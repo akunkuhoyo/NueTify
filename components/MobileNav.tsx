@@ -332,7 +332,7 @@ export function MobileBottomTabs() {
       <div
         data-testid="mobile-default-dock"
         data-dock-style="default"
-        className="lg:hidden fixed inset-x-0 bottom-0 z-40" pointer-events-none"
+        className="lg:hidden fixed inset-x-0 bottom-0 z-40 pointer-events-none"
       >
         {/* Lightweight Solid MiniPlayer Strip above bottom nav */}
         {currentTrack && (
