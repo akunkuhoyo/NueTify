@@ -152,10 +152,11 @@ export async function GET(req: NextRequest) {
       enabled: false,
       message: 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.',
     };
-
+    const chatFilterRow = (configRes.data || []).find((c) => c.key === 'global_chat_filter');
+        const chatFilterWords = Array.isArray(chatFilterRow?.value?.words) ? chatFilterRow.value.words : [];
     return NextResponse.json({
       ok: true,
-      maintenance,
+      maintenance, chatFilterWords,
       users,
       auditLogs: logsRes.data || [],
       notifications: notificationsRes.data || [],
@@ -191,7 +192,7 @@ interface PostBody {
   total_plays?: number;
   totalHours?: number;
   totalMinutes?: number;
-  totalPlays?: number;
+  totalPlays?: number; words?: string[];
 }
 
 export async function POST(req: NextRequest) {
@@ -207,7 +208,7 @@ export async function POST(req: NextRequest) {
     if (!action) {
       return NextResponse.json({ ok: false, error: 'Missing action' }, { status: 400 });
     }
-
+    if (body.action === 'update_chat_filter') { const rawWords = Array.isArray(body.words) ? body.words : []; const cleanWords = Array.from(new Set(rawWords.map((w) => String(w).trim().toLowerCase()).filter((w) => w.length > 0 && w.length <= 40))).slice(0, 300); const { error } = await db.from('app_config').upsert({ key: 'global_chat_filter', value: { words: cleanWords }, updated_at: new Date().toISOString() }, { onConflict: 'key' }); if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 }); await db.from('admin_audit_logs').insert({ action: 'UPDATE_CHAT_FILTER', details: { count: cleanWords.length }, admin_email: user.email || ADMIN_EMAIL }); return NextResponse.json({ ok: true, words: cleanWords }); }
     if (action === 'toggle_maintenance') {
       const enabled = Boolean(body.enabled);
       const message = body.message || 'Aplikasi sedang dalam pemeliharaan. Silakan coba lagi nanti.';
