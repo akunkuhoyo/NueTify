@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { getSupabaseClient } from '@/lib/supabase/client';
+import { getSupabaseClient } from '@/lib/cloud/supabaseClient';
 
 type BroadcastNotification = {
   id: string;
