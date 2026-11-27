@@ -24,6 +24,7 @@ import { MarqueeText } from './MarqueeText';
 import { useAuth } from './AuthProvider';
 import { ArtworkImage } from './ArtworkImage';
 import { LeaderboardSection } from './LeaderboardSection';
+import { GlobalChatSection } from './GlobalChatSection';
 import { TrackContextMenu } from './TrackContextMenu';
 import { VerifiedBadge, isVerifiedDeveloper } from './VerifiedBadge';
 import {
@@ -693,7 +694,9 @@ return (
   </section>
 );
 })()}
-          {selectedMood === 'all' && <LeaderboardSection />}
+          
+      {selectedMood === 'all' && <GlobalChatSection />}{
+      {selectedMood === 'all' && <LeaderboardSection />}
     {selectedMood === 'all' && mostPlayed.length > 0 && (<section className="space-y-3"><h2 className="text-[20px] sm:text-[22px] font-bold tracking-tight">Paling Sering Kamu Putar</h2><div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-1">{mostPlayed.map(({ track, count }) => (<button key={`mp-${track.videoId}`} type="button" onClick={() => playTrack(track, mostPlayed.map((m) => m.track))} className="group w-[144px] sm:w-[160px] shrink-0 text-left space-y-2"><div className="relative aspect-square rounded-2xl overflow-hidden shadow-md bg-black/10 dark:bg-white/5"><ArtworkImage src={track.thumbnail} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /><span className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-black/70 text-white backdrop-blur-md">{count}× diputar</span></div><div><p className="text-[13px] font-semibold truncate">{track.title}</p><p className="text-[11px] opacity-60 truncate">{track.artist}</p></div></button>))}</div></section>)}
           {selectedMood === 'all' && searchRecs.length > 0 && (<section className="space-y-3"><h2 className="text-[20px] sm:text-[22px] font-bold tracking-tight">Sesuai Pencarian & Seleramu</h2><div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-1">{searchRecs.map((track, idx) => (<button key={`sr-${track.videoId}-${idx}`} type="button" onClick={() => playTrack(track, searchRecs)} className="group w-[144px] sm:w-[160px] shrink-0 text-left space-y-2"><div className="relative aspect-square rounded-2xl overflow-hidden shadow-md bg-black/10 dark:bg-white/5"><ArtworkImage src={track.thumbnail} alt={track.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /></div><div><p className="text-[13px] font-semibold truncate">{track.title}</p><p className="text-[11px] opacity-60 truncate">{track.artist}</p></div></button>))}</div></section>)} {/* NEW VARIATION 1: Pilihan Teratas untuk Anda (Tall 3-Circle Artist Collage Cards) */}
           <TopPicksCollageSection
