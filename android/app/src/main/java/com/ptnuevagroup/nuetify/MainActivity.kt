@@ -68,6 +68,7 @@ class MainActivity : AppCompatActivity() {
     private var desiredEqEnabled = false
     private var desiredBassBoostEnabled = false
     private var desiredLoudnessEnabled = false
+    private val eqExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     private fun getInstalledAppVersion(): String {
         return try {
@@ -109,21 +110,27 @@ class MainActivity : AppCompatActivity() {
             settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             settings.userAgentString = "${settings.userAgentString} NueTifyAndroid/1.3 NueTifyAppVer/${getInstalledAppVersion()}"
             settings.cacheMode = if (isNetworkAvailable()) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
+            settings.setSupportMultipleWindows(true)
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(
                     view: WebView?,
                     request: WebResourceRequest?
                 ): Boolean {
                     val uri = request?.url ?: return false
-                    val urlStr = uri.toString()
-                    val hostStr = uri.host ?: ""
-                    val isOAuth =
-                        hostStr.contains("accounts.google.com") ||
-                        urlStr.contains("/auth/v1/authorize")
-                    if (isOAuth) {
-                        launchExternalBrowser(uri)
-                        return true
-                    }
+              val scheme = (uri.scheme ?: "").lowercase()
+val host = (uri.host ?: "").lowercase()
+if (scheme != "http" && scheme != "https") {
+openExternalUri(uri)
+return true
+}
+if (host.contains("accounts.google.com") || uri.toString().contains("/auth/v1/authorize")) {
+launchExternalBrowser(uri)
+return true
+}
+if (host != "nuetify.vercel.app" && !host.endsWith(".nuetify.vercel.app")) {
+openExternalUri(uri)
+return true
+}
                     return false
                 }
                 override fun onPageFinished(view: WebView?, url: String?) {
@@ -158,7 +165,40 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
-            webChromeClient = WebChromeClient()
+            webChromeClient =object : WebChromeClient() {
+override fun onCreateWindow(
+view: WebView?,
+isDialog: Boolean,
+isUserGesture: Boolean,
+resultMsg: android.os.Message?
+): Boolean {
+val result = view?.hitTestResult
+val data = result?.extra
+if (!data.isNullOrBlank()) {
+try {
+openExternalUri(Uri.parse(data))
+return false
+} catch (_: Exception) {}
+}
+val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+val tempWebView = WebView(this@MainActivity)
+tempWebView.webViewClient = object : WebViewClient() {
+override fun shouldOverrideUrlLoading(v: WebView?, request: WebResourceRequest?): Boolean {
+val targetUri = request?.url
+if (targetUri != null) {
+openExternalUri(targetUri)
+}
+try {
+tempWebView.destroy()
+} catch (_: Exception) {}
+return true
+}
+}
+transport.webView = tempWebView
+resultMsg.sendToTarget()
+return true
+}
+            }
             addJavascriptInterface(NativeBridge(), "NueTifyNative")
         }
 
@@ -317,6 +357,17 @@ class MainActivity : AppCompatActivity() {
             </html>
         """.trimIndent()
     }
+    private fun openExternalUri(uri: Uri) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return
+        } catch (_: Exception) {}
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage("com.android.chrome").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return
+        } catch (_: Exception) {}
+        launchExternalBrowser(uri)
+    }
 
     private fun launchExternalBrowser(uri: Uri) {
         try {
@@ -371,7 +422,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun updateHardwareAudioEffectsEnabled() {
-        runOnUiThread {
+        eqExecutor.execute {
             val shouldEnable = isNueTifyPlaying && !hasExternalAudioFocusLoss
             try { equalizer?.enabled = shouldEnable && desiredEqEnabled } catch (_: Exception) {}
             try { bassBoost?.enabled = shouldEnable && desiredBassBoostEnabled } catch (_: Exception) {}
@@ -409,6 +460,7 @@ class MainActivity : AppCompatActivity() {
             networkCallback = null
         } catch (_: Exception) {
         }
+        try { eqExecutor.shutdownNow() } catch (_: Exception) {}
         super.onDestroy()
     }
 
@@ -494,7 +546,7 @@ class MainActivity : AppCompatActivity() {
         fun setEqualizer(bandsJson: String, bassBoostOn: Boolean) {
                    if (bandsJson == lastEqBandsJson && bassBoostOn == lastBassBoostOn) return;
             lastEqBandsJson = bandsJson; lastBassBoostOn = bassBoostOn;
-            runOnUiThread {
+            eqExecutor.execute {
                 try {
                     if (equalizer == null && bassBoost == null && loudnessEnhancer == null) {
                         initAudioEffects()
