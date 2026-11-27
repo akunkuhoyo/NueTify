@@ -83,6 +83,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         activeInstance = java.lang.ref.WeakReference(this)
         NotificationPushReceiver.scheduleNext(this)
+        NotificationPushReceiver.pollNow(this)
 
         window.statusBarColor = Color.parseColor("#121212")
         window.navigationBarColor = Color.parseColor("#121212")
@@ -441,6 +442,7 @@ return true
 
     override fun onStop() {
         super.onStop()
+        NotificationPushReceiver.scheduleNext(this)
         CookieManager.getInstance().flush()
         if (::webView.isInitialized) {
             webView.onResume()
@@ -449,6 +451,7 @@ return true
     }
 
     override fun onDestroy() {
+        NotificationPushReceiver.scheduleNext(this)
         try {equalizer?.enabled = false;  equalizer?.release() } catch (_: Exception) {}
         try {bassBoost?.enabled = false;  bassBoost?.release() } catch (_: Exception) {}
         try {loudnessEnhancer?.enabled = false;  loudnessEnhancer?.release() } catch (_: Exception) {}
