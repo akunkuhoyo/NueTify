@@ -467,7 +467,7 @@ export async function POST(req: NextRequest) {
         .insert({
           title,
           body: notifBody,
-          created_by: user.email || ADMIN_EMAIL,
+          sent_by: user.email || ADMIN_EMAIL,
         })
         .select()
         .single();
