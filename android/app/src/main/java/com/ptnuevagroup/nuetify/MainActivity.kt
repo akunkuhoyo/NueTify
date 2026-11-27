@@ -42,6 +42,9 @@ import androidx.core.content.ContextCompat
 import org.json.JSONArray
 import java.io.File
 import java.io.FileOutputStream
+import android.provider.Settings
+import java.net.HttpURLConnection
+import java.net.URL
 
 class BackgroundWebView(context: Context) : WebView(context) {
     override fun onWindowVisibilityChanged(visibility: Int) {
@@ -669,92 +672,131 @@ return true
 
         @JavascriptInterface
         fun downloadAndInstallApk(url: String, version: String) {
-            runOnUiThread {
-                try {
-                    val fileName = "NueTify-${version}.apk"
-                    val dm = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-                    val request = DownloadManager.Request(Uri.parse(url))
-                        .setTitle("NueTify v${version}")
-                        .setDescription("Mengunduh update aplikasi...")
-                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-                        .setMimeType("application/vnd.android.package-archive")
-                    val downloadId = dm.enqueue(request)
-                    Toast.makeText(this@MainActivity, "Mengunduh update NueTify...", Toast.LENGTH_LONG).show()
-
-                   fun reportProgress(pct: Int, statusStr: String) {
-val safeFile = fileName.replace("'", "\\'")
-runOnUiThread {
-if (::webView.isInitialized) {
-webView.evaluateJavascript(
-"window.__nuetifyUpdateProgress && window.__nuetifyUpdateProgress($pct, '$statusStr', '$safeFile');",
-null
-)
-}
-}
-}
-reportProgress(5, "downloading")
-Thread {
-var downloading = true; var pendingPct = 4
-while (downloading) {
-val query = DownloadManager.Query().setFilterById(downloadId)
-val cursor = dm.query(query)
-if (cursor != null && cursor.moveToFirst()) {
-val statusIdx = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-val bytesIdx = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-val totalIdx = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
-val status = if (statusIdx >= 0) cursor.getInt(statusIdx) else -1
-val bytesDownloaded = if (bytesIdx >= 0) cursor.getLong(bytesIdx) else 0L
-val bytesTotal = if (totalIdx >= 0) cursor.getLong(totalIdx) else 0L
-when (status) {
-DownloadManager.STATUS_SUCCESSFUL -> {
-downloading = false
-reportProgress(100, "installing")
-try {
-val apkUri = dm.getUriForDownloadedFile(downloadId)
-if (apkUri != null) {
-val installIntent = Intent(Intent.ACTION_VIEW).apply {
-setDataAndType(apkUri, "application/vnd.android.package-archive")
-addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-}
-runOnUiThread {
-try {
-startActivity(installIntent)
-} catch (_: Exception) {}
-}
-}
-} catch (_: Exception) {}
-try {
-Thread.sleep(1200L)
-} catch (_: InterruptedException) {}
-reportProgress(100, "completed")
-}
-DownloadManager.STATUS_FAILED -> {
-downloading = false
-reportProgress(0, "error")
-}
-else -> {
-val pct = when { bytesTotal > 0L -> ((bytesDownloaded * 100L) / bytesTotal).toInt().coerceIn(5, 99); bytesDownloaded > 0L -> ((bytesDownloaded * 100L) / 2_800_000L).toInt().coerceIn(8, 95); else -> { pendingPct = (pendingPct + 1).coerceAtMost(20); pendingPct } }
-reportProgress(pct, "downloading")
-}
-}
-} else {
-downloading = false
-}
-cursor?.close()
-if (downloading) {
-try {
-Thread.sleep(250L)
-} catch (_: InterruptedException) {
-downloading = false
-}
-}
-}
-}.start()
-                } catch (_: Exception) {
-                    Toast.makeText(this@MainActivity, "Gagal mengunduh update", Toast.LENGTH_SHORT).show()
+            val fileName = "NueTify-${version}.apk"
+            val safeFile = fileName.replace("'", "\\'")
+            fun reportProgress(pct: Int, statusStr: String) {
+                runOnUiThread {
+                    val js = "window.__nuetifyUpdateProgress && window.__nuetifyUpdateProgress($pct, '$statusStr', '$safeFile');"
+                    webView.evaluateJavascript(js, null)
                 }
             }
+            runOnUiThread {
+                Toast.makeText(this@MainActivity, "Mengunduh update NueTify...", Toast.LENGTH_LONG).show()
+            }
+        Thread {
+    try {
+        reportProgress(2, "downloading")
+        var currentUrl = url
+        var conn: HttpURLConnection? = null
+        var hops = 0
+        while (hops < 8) {
+            val u = URL(currentUrl)
+            val c = (u.openConnection() as HttpURLConnection).apply {
+                instanceFollowRedirects = false
+                connectTimeout = 15000
+                readTimeout = 30000
+                setRequestProperty("User-Agent", "NueTifyAndroid/1.0")
+            }
+            val code = c.responseCode
+            if (code == HttpURLConnection.HTTP_MOVED_PERM ||
+                code == HttpURLConnection.HTTP_MOVED_TEMP ||
+                code == HttpURLConnection.HTTP_SEE_OTHER ||
+                code == 307 || code == 308
+            ) {
+                val loc = c.getHeaderField("Location")
+                c.disconnect()
+                if (loc.isNullOrBlank()) throw Exception("Redirect without Location")
+                currentUrl = URL(u, loc).toString()
+                hops++
+            } else {
+                conn = c
+                break
+            }
+        }
+        val activeConn = conn ?: throw Exception("Too many redirects")
+        if (activeConn.responseCode !in 200..299) {
+            val errCode = activeConn.responseCode
+            activeConn.disconnect()
+            throw Exception("HTTP $errCode")
+        }
+        val contentLength = activeConn.getHeaderField("Content-Length")?.toLongOrNull()
+            ?: activeConn.contentLength.toLong()
+        val totalBytes = if (contentLength > 0L) contentLength else 2_800_000L
+        val outFile = File(cacheDir, fileName)
+        activeConn.inputStream.use { input ->
+            FileOutputStream(outFile).use { output ->
+                val buffer = ByteArray(16384)
+                var bytesRead = 0L
+                var lastUpdate = 0L
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read == -1) break
+                    output.write(buffer, 0, read)
+                    bytesRead += read
+                    val now = System.currentTimeMillis()
+                    if (now - lastUpdate >= 150L) {
+                        lastUpdate = now
+                        val pct = ((bytesRead * 100L) / totalBytes).toInt().coerceIn(2, 99)
+                        reportProgress(pct, "downloading")
+                    }
+                }
+                output.flush()
+            }
+        }
+        activeConn.disconnect()
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, "application/vnd.android.package-archive")
+                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+                val uri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                if (uri != null) {
+                    contentResolver.openOutputStream(uri)?.use { dest ->
+                        outFile.inputStream().use { src -> src.copyTo(dest) }
+                    }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                val dlDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                if (dlDir != null && (dlDir.exists() || dlDir.mkdirs())) {
+                    outFile.copyTo(File(dlDir, fileName), overwrite = true)
+                }
+            }
+        } catch (_: Exception) {
+        }
+        reportProgress(100, "installing")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+            runOnUiThread {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Aktifkan izin 'Instal aplikasi tidak dikenal' untuk NueTify, lalu tekan Update lagi.",
+                    Toast.LENGTH_LONG
+                ).show()
+                startActivity(
+                    Intent(
+                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                        Uri.parse("package:$packageName")
+                    ).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                )
+            }
+            return@Thread
+        }
+        val apkUri = FileProvider.getUriForFile(this@MainActivity, "${packageName}.fileprovider", outFile)
+        val installIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(apkUri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runOnUiThread {
+            startActivity(installIntent)
+        }
+        reportProgress(100, "completed")
+    } catch (_: Exception) {
+        reportProgress(0, "error")
+    }
+}.start()    
+
         }
 @JavascriptInterface
 fun openDownloadsFolder() {
