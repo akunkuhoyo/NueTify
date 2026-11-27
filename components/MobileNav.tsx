@@ -425,7 +425,7 @@ isActive
 : 'border border-transparent text-white/60 hover:text-white/90'
 )}
 >
-<Icon className="w-[20px] h-[20px]" strokeWidth={isActive ? 2.4 : 1.9} />
+<Icon className="w-[20px] h-[20px]" />
 <span className="text-[10px] font-semibold leading-tight tracking-tight">
 {tab.label}
 </span>
