@@ -18,6 +18,7 @@ type NativeBridge = {
   getAppVersionName?: () => string;
   downloadAndInstallApk?: (apkUrl: string, version: string) => void;
   openDownloadsFolder?: () => void;
+  openExternalAuth?: (url: string) => void;
 };
 
 const FALLBACK_RELEASE: ReleaseInfo = {
@@ -89,6 +90,7 @@ export function AppDownloadModal() {
   const [downloadState, setDownloadState] = useState<DownloadState>('idle');
   const [downloadPercent, setDownloadPercent] = useState<number>(0);
   const [downloadFileName, setDownloadFileName] = useState<string>('');
+  const [copiedUrl, setCopiedUrl] = useState<boolean>(false);
 const nativeProgressRef = useRef(false);
   const fallbackTimerRef = useRef<number | null>(null);
   useEffect(() => {
@@ -312,6 +314,32 @@ const nativeProgressRef = useRef(false);
     native?.openDownloadsFolder?.();
   };
 
+  const handleBrowserFallbackDownload = () => {
+    if (!release?.downloadUrl) return;
+    const native = (window as unknown as { NueTifyNative?: NativeBridge }).NueTifyNative;
+    if (native?.openExternalAuth) {
+      native.openExternalAuth(release.downloadUrl);
+      return;
+    }
+    window.location.href = release.downloadUrl;
+  };
+
+  const handleCopyDownloadUrl = async () => {
+    if (!release?.downloadUrl) return;
+    try {
+      await navigator.clipboard.writeText(release.downloadUrl);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = release.downloadUrl;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    setCopiedUrl(true);
+    window.setTimeout(() => setCopiedUrl(false), 2500);
+  };
+
   if (!isNative || !open) return null;
 
   const isBusy = downloadState === 'downloading' || downloadState === 'installing';
@@ -401,14 +429,20 @@ const nativeProgressRef = useRef(false);
             <FolderOpen className="w-4 h-4 text-[#C0C0C0]" />
             <span>Buka Folder Download</span>
           </button>
-<a
-  href={release.downloadUrl}
-  target="_blank"
-  rel="noopener noreferrer"
+<button
+        type="button"
+        onClick={handleBrowserFallbackDownload}
   className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-[#C0C0C0]/20 bg-[#1A1A1A] text-[#C0C0C0] font-medium text-xs py-2.5 px-4 hover:bg-[#242424] hover:text-white transition-colors"
 >
   <span>Gagal / Macet? Unduh via Browser</span>
-</a>
+</button>
+            <button
+              type="button"
+              onClick={() => void handleCopyDownloadUrl()}
+              className="w-full text-center text-[11px] text-[#7A7A7A] hover:text-[#C0C0C0] py-1 transition-colors"
+            >
+              {copiedUrl ? 'Link Disalin! Tempel di Chrome' : 'Salin Link Download APK'}
+            </button>
         </div>
         {isForceUpdate && (
           <p className="mt-3 text-center text-xs text-[#A7A7A7]">
