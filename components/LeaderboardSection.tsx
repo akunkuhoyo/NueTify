@@ -38,6 +38,10 @@ export function LeaderboardSection() {
 
 useEffect(() => {
 if (!showFull) return;
+const prevHtmlOverflow = document.documentElement.style.overflow;
+const prevBodyOverflow = document.body.style.overflow;
+document.documentElement.style.overflow = 'hidden';
+document.body.style.overflow = 'hidden';
 const w = window as unknown as { __nuetifyCloseLeaderboard?: () => boolean };
 w.__nuetifyCloseLeaderboard = () => {
 setShowFull(false);
@@ -51,6 +55,8 @@ setShowFull(false);
 };
 window.addEventListener('popstate', onPopState);
 return () => {
+document.documentElement.style.overflow = prevHtmlOverflow;
+document.body.style.overflow = prevBodyOverflow;
 delete w.__nuetifyCloseLeaderboard;
 window.removeEventListener('popstate', onPopState);
 };
@@ -172,7 +178,7 @@ window.removeEventListener('popstate', onPopState);
   const fullOverlay =
     showFull && typeof document !== 'undefined'
       ? createPortal(
-          <div className="fixed inset-0 z-[95] bg-[#121212] text-[#E5E5E5] overflow-y-auto px-4 pt-5 pb-16">
+          <div className="fixed inset-0 z-[95] bg-[#121212] text-[#E5E5E5] overflow-y-auto overscroll-contain px-4 pt-5 pb-16">
             <div className="max-w-2xl mx-auto space-y-5">
               <header className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
