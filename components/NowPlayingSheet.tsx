@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   ArrowDown,
@@ -89,7 +89,18 @@ export function NowPlayingSheet() {
   const [queueFilter, setQueueFilter] = useState('');
   const [pressedControl, setPressedControl] = useState<'prev' | 'play' | 'next' | null>(
     null
-  );
+);
+useEffect(() => {
+if (!isNowPlayingOpen) return;
+const prevHtmlOverflow = document.documentElement.style.overflow;
+const prevBodyOverflow = document.body.style.overflow;
+document.documentElement.style.overflow = 'hidden';
+document.body.style.overflow = 'hidden';
+return () => {
+document.documentElement.style.overflow = prevHtmlOverflow;
+document.body.style.overflow = prevBodyOverflow;
+};
+}, [isNowPlayingOpen]);
 
   if (!currentTrack) return null;
 
@@ -111,7 +122,7 @@ export function NowPlayingSheet() {
           role="dialog"
           aria-modal="true"
           aria-label="Now Playing"
-          className="fixed inset-0 z-50 bg-[var(--m3-bg)] flex flex-col overflow-hidden"
+          className="fixed overscroll-contain inset-0 z-50 bg-[var(--m3-bg)] flex flex-col overflow-hidden"
         >
           {/* Multi-Mode Player Background (Blurred Artwork, Solid, Gradient, Animated Gradient, Liquid) */}
           <PlayerBackground
