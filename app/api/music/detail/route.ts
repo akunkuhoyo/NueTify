@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
         kind: 'playlist',
         id: playlist.playlistId,
         title: playlist.name,
-        subtitle: `${playlist.artist?.name || 'YouTube Music'} · ${videos.length || playlist.videoCount} tracks`,
+        subtitle: `${playlist.artist?.name || 'NueTify'} · ${videos.length || playlist.videoCount} tracks`,
         thumbnail: pickBestThumbnail(playlist.thumbnails),
         tracks: videos.map((v) => ({
           ...normalizeVideo(v),
