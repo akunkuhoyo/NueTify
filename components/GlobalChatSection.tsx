@@ -542,7 +542,7 @@ const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
             )}
 
             {/* Message List */}
-            <div ref={listRef} className="flex-1 overflow-y-auto overscroll-contain px-3.5 py-4 space-y-3.5">
+            <div ref={listRef} className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3.5 py-4 space-y-3.5">
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center text-white/45 text-sm px-6">
                   <MessageSquareText className="w-8 h-8 mb-2 text-white/25" />
@@ -564,9 +564,9 @@ if (msg.is_system_warning) { return (<div key={msg.clientKey || msg.id } classNa
                         <UserAvatar src={msg.avatar_url} name={msg.display_name} size={36} />
                       </div>
 
-                      <div className={`flex flex-col max-w-[82%] ${isOwn ? 'items-end' : 'items-start'}`}>
+                      <div className={`flex flex-col min-w-0 max-w-[82%] ${isOwn ? 'items-end' : 'items-start'}`}>
                         <div
-                          className={`rounded-2xl px-3.5 py-2.5 border ${
+                          className={`max-w-full min-w-0 overflow-hidden rounded-2xl px-3.5 py-2.5 border ${
                             isOwn
                               ? 'bg-[#202024] border-[#C0C0C0]/25'
                               : 'bg-[#181818] border-white/10'
@@ -606,12 +606,12 @@ if (msg.is_system_warning) { return (<div key={msg.clientKey || msg.id } classNa
                             <button
                               type="button"
                               onClick={() => msg.reply_to_id && scrollToMessage(msg.reply_to_id)}
-                              className="w-full text-left border-l-2 border-[#C0C0C0]/60 bg-white/[0.04] rounded-r-lg px-2.5 py-1.5 mb-1.5 text-[11px] hover:bg-white/[0.07] transition-colors"
+                              className="w-full min-w-0 max-w-full overflow-hidden text-left border-l-2 border-[#C0C0C0]/60 bg-white/[0.04] rounded-r-lg px-2.5 py-1.5 mb-1.5 text-[11px] hover:bg-white/[0.07] transition-colors"
                             >
                               <div className="font-semibold text-[#E5E5E5] truncate">
                                 {msg.reply_to_name || 'Pengguna'}
                               </div>
-                              <div className="text-white/60 truncate">
+                              <div className="text-white/60 line-clamp-2 break-words">
                                 {msg.reply_to_content || 'Pesan tidak tersedia'}
                               </div>
                             </button>
@@ -685,7 +685,7 @@ if (msg.is_system_warning) { return (<div key={msg.clientKey || msg.id } classNa
 
               {replyTarget && (
                 <div className="flex items-center justify-between gap-2 bg-white/[0.05] border border-white/10 rounded-xl px-3 py-1.5 mb-2 text-xs">
-                  <div className="min-w-0 truncate text-white/75">
+                  <div className="flex-1 min-w-0 overflow-hidden truncate text-white/75">
                     <span className="text-white/50">Membalas </span>
                     <span className="font-semibold text-white">{replyTarget.display_name}: </span>
                     <span>{replyTarget.content}</span>
