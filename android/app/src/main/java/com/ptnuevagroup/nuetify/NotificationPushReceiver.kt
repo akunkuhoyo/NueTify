@@ -8,6 +8,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.graphics.BitmapFactory
+import android.graphics.Color
 import androidx.core.app.NotificationCompat
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -83,6 +85,7 @@ class NotificationPushReceiver : BroadcastReceiver() {
             } catch (_: Exception) {
             }
             PushNotificationJobService.schedule(context)
+            PushKeepAliveWorker.ensureScheduled(context)
         }
 
         fun showNotification(context: Context, id: String, title: String, body: String) {
@@ -107,12 +110,17 @@ class NotificationPushReceiver : BroadcastReceiver() {
             val flags = PendingIntent.FLAG_UPDATE_CURRENT or
                 (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
             val pendingIntent = PendingIntent.getActivity(context, id.hashCode(), openIntent, flags)
+        val largeIcon = try { BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher) } catch (_: Exception) { null }
 
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.mipmap.ic_launcher)
+            .setLargeIcon(largeIcon)
+            .setColor(Color.parseColor("#121212"))
+            .setSubText("NueTify")
+            .setOnlyAlertOnce(false)
                 .setContentTitle(title.ifBlank { "NueTify" })
                 .setContentText(body)
-                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                .setStyle(NotificationCompat.BigTextStyle().setBigContentTitle(title).bigText(body))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
