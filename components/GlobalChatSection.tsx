@@ -701,7 +701,8 @@ if (msg.is_system_warning) { return (<div key={msg.clientKey || msg.id } classNa
                 </div>
               )}
 
-              {user ? (
+              {user ? (<>
+                
                 <div className="flex items-end gap-2">
                   <textarea
                     ref={inputRef}
@@ -734,6 +735,10 @@ if (msg.is_system_warning) { return (<div key={msg.clientKey || msg.id } classNa
                     {cooldownSec > 0 ? <span className="text-xs font-bold">{cooldownSec}s</span> : <Send className="w-4 h-4" />}
                   </button>
                 </div>
+<p className="mt-1.5 text-center text-[10.5px] text-white/45">
+  Harap gunakan bahasa yang sopan dan saling menghargai di Global Chat.
+</p>
+</>
               ) : (
                 <p className="text-xs text-center text-white/60 py-1.5">
                   Masuk ke akun NueTify untuk ikut mengirim pesan di Global Chat.
