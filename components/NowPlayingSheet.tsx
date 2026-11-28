@@ -654,7 +654,7 @@ document.body.style.overflow = prevBodyOverflow;
                       {lyrics?.source && lyrics.source !== 'none' && (
                         <>
                           <span aria-hidden="true"> · </span>
-                          <span>Synced via {lyrics.source.toUpperCase()}</span>
+                          <span>Synced via NueTify</span>
                         </>
                       )}
                     </p>
@@ -705,7 +705,7 @@ document.body.style.overflow = prevBodyOverflow;
                     onOffsetChange={(nextMs) =>
                       updateSettings({ lyricsGlobalOffsetMs: nextMs })
                     }
-                    showOffsetBar={true}
+                    showOffsetBar={false}
                   />
                 ) : lyrics?.plainText ? (
                   <div className="flex-1 overflow-y-auto py-4 px-4 rounded-3xl metro-surface">
