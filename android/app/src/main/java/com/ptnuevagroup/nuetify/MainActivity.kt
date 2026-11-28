@@ -86,6 +86,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         activeInstance = java.lang.ref.WeakReference(this)
         NotificationPushReceiver.scheduleNext(this)
+        PushKeepAliveWorker.ensureScheduled(this)
         NotificationPushReceiver.pollNow(this)
 
         window.statusBarColor = Color.parseColor("#121212")
