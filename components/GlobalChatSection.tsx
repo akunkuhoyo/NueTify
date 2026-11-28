@@ -67,7 +67,7 @@ function formatClock(iso: string): string {
 }
 
 export function GlobalChatSection() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
