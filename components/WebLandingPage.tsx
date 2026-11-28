@@ -32,133 +32,227 @@ interface AppReleaseData {
   publishedAt?: string | null;
 }
 
-const SHOWCASE_CHIPS = [
-  { label: 'Audio 24/7 Latar Belakang', icon: Headphones },
-  { label: '5-Band Hardware EQ', icon: Sliders },
-  { label: 'Global Chat Real-Time', icon: MessageSquareText },
-  { label: 'Mode Offline', icon: WifiOff },
+const DIAGONAL_HATCH_CLASS =
+  'bg-[repeating-linear-gradient(315deg,rgba(255,255,255,0.055)_0,rgba(255,255,255,0.055)_1px,transparent_0,transparent_50%)] bg-[length:10px_10px]';
+
+type PreviewTabKey = 'audio' | 'equalizer' | 'chat' | 'offline';
+
+interface PreviewTab {
+  key: PreviewTabKey;
+  label: string;
+  fileName: string;
+  badge: string;
+  title: string;
+  description: string;
+  highlights: string[];
+  metricLabel: string;
+  metricValue: string;
+  metricSub: string;
+  statusTag: string;
+}
+
+const PREVIEW_TABS: PreviewTab[] = [
+  {
+    key: 'audio',
+    label: 'Audio 24/7',
+    fileName: 'audio-engine.kt',
+    badge: 'BACKGROUND SERVICE',
+    title: 'Pemutaran Audio Tanpa Jeda 24/7',
+    description:
+      'Engine native Android menjaga streaming musik tetap stabil di latar belakang meski layar mati atau berpindah aplikasi.',
+    highlights: [
+      'Foreground service hemat baterai dengan wakelock adaptif',
+      'Transisi antar lagu mulus tanpa gap (gapless playback)',
+      'Kontrol penuh dari notifikasi & lock screen Android',
+    ],
+    metricLabel: 'LATENSI BUFFER',
+    metricValue: '12 ms',
+    metricSub: 'Stabil di jaringan 4G / Wi-Fi',
+    statusTag: 'ACTIVE · 320 KBPS',
+  },
+  {
+    key: 'equalizer',
+    label: 'Equalizer',
+    fileName: 'dsp-equalizer.kt',
+    badge: 'CUSTOM DSP',
+    title: 'Equalizer 10-Band & Bass Boost',
+    description:
+      'Sesuaikan karakter suara secara real-time dengan preset studio atau kurva frekuensi manual untuk earphone dan speaker.',
+    highlights: [
+      '10-band parametric EQ dengan respons instan',
+      'Preset Pop, Bass Boost, Vocal, Lo-Fi, dan Flat Studio',
+      'Simpan profil audio otomatis per perangkat Bluetooth',
+    ],
+    metricLabel: 'RENTANG FREKUENSI',
+    metricValue: '32Hz–16kHz',
+    metricSub: 'Presisi 32-bit floating point',
+    statusTag: 'DSP · CALIBRATED',
+  },
+  {
+    key: 'chat',
+    label: 'Global Chat',
+    fileName: 'global-chat.kt',
+    badge: 'REALTIME SOCKET',
+    title: 'Ruang Obrolan & Reaksi Pendengar',
+    description:
+      'Terhubung langsung dengan komunitas pendengar NueTify, bagikan lagu favorit, dan ikuti sesi dengar bersama.',
+    highlights: [
+      'Pesan real-time dengan latensi rendah & moderasi otomatis',
+      'Bagikan kartu lagu langsung ke ruang obrolan global',
+      'Lencana pendengar aktif dan papan peringkat mingguan',
+    ],
+    metricLabel: 'SINKRONISASI',
+    metricValue: '< 80 ms',
+    metricSub: 'WebSocket terenkripsi TLS',
+    statusTag: 'ONLINE · GLOBAL',
+  },
+  {
+    key: 'offline',
+    label: 'Mode Offline',
+    fileName: 'offline-cache.kt',
+    badge: 'LOCAL VAULT',
+    title: 'Simpan & Putar Tanpa Kuota',
+    description:
+      'Unduh daftar putar pilihan langsung ke penyimpanan internal Android untuk didengarkan kapan saja tanpa koneksi internet.',
+    highlights: [
+      'Cache terenkripsi langsung di perangkat Android Anda',
+      'Manajemen ruang penyimpanan cerdas & batas kuota otomatis',
+      'Sinkronisasi riwayat putar saat kembali terhubung',
+    ],
+    metricLabel: 'EFISIENSI STORAGE',
+    metricValue: '-45%',
+    metricSub: 'Kompresi AAC / Opus adaptif',
+    statusTag: 'CACHED · READY',
+  },
 ];
 
-const BENTO_FEATURES = [
+const FEATURES = [
   {
-    title: 'Pemutaran Latar Belakang 24/7',
+    code: '01 / AUDIO',
+    title: 'Streaming 24/7 Non-Stop',
     description:
-      'Dengarkan musik tanpa henti saat layar mati atau berpindah aplikasi dengan mesin audio native berdaya rendah.',
+      'Engine audio latar belakang yang ringan menjaga musik tetap berjalan mulus tanpa terputus saat multitasking.',
     icon: Headphones,
-    tag: 'Native Audio Engine',
   },
   {
-    title: 'Equalizer Perangkat Keras',
+    code: '02 / EQUALIZER',
+    title: 'Equalizer Studio 10-Band',
     description:
-      'Kontrol 5-band frekuensi presisi langsung di tingkat sistem Android dengan preset studio dan bass boost.',
+      'Atur frekuensi bass, mid, dan treble sesuai selera dengan preset instan maupun kustomisasi penuh.',
     icon: Sliders,
-    tag: '5-Band DSP',
   },
   {
-    title: 'Global Chat Real-Time',
+    code: '03 / CHAT',
+    title: 'Global Chat Komunitas',
     description:
-      'Terhubung dengan pendengar lain secara langsung di ruang obrolan global dengan pembaruan instan.',
+      'Diskusi musik real-time bersama pendengar lain lengkap dengan berbagi trek langsung di ruang obrolan.',
     icon: MessageSquareText,
-    tag: 'Live Community',
   },
   {
-    title: 'Top 50 Leaderboard',
+    code: '04 / OFFLINE',
+    title: 'Mode Offline Cepat',
     description:
-      'Pantau peringkat pendengar paling aktif dan lagu paling populer dalam papan peringkat yang diperbarui berkala.',
-    icon: Trophy,
-    tag: 'Live Ranking',
-  },
-  {
-    title: 'Mode Offline Pintar',
-    description:
-      'Simpan trek favorit ke penyimpanan lokal terenkripsi untuk diputar kapan saja tanpa koneksi internet.',
+      'Putar koleksi favorit tanpa koneksi internet dengan manajemen cache lokal yang efisien.',
     icon: WifiOff,
-    tag: 'Offline Cache',
   },
   {
-    title: 'Update Otomatis Dalam Aplikasi',
+    code: '05 / REWARD',
+    title: 'Pencapaian & Badge',
     description:
-      'Setiap rilis APK terbaru langsung terdeteksi otomatis sehingga Anda selalu mendapatkan performa terbaik.',
+      'Kumpulkan jam dengar dan buka lencana eksklusif langsung dari profil Android Anda.',
+    icon: Trophy,
+  },
+  {
+    code: '06 / AUTO UPDATE',
+    title: 'Pembaruan Rilis Otomatis',
+    description:
+      'Selalu dapatkan versi APK terbaru langsung dari endpoint rilis resmi tanpa perlu mencari tautan manual.',
     icon: Sparkles,
-    tag: 'Auto Release Sync',
   },
 ];
 
 const INSTALL_STEPS = [
   {
-    step: '01',
-    title: 'Unduh APK Terbaru',
+    step: 'LANGKAH 01',
+    title: 'Unduh APK Resmi',
     description:
-      'Ketuk tombol unduh di halaman ini untuk mendapatkan berkas installer resmi NueTify versi terbaru.',
-    icon: Download,
+      'Tekan tombol Unduh untuk Android di halaman ini untuk mengunduh berkas instalasi resmi NueTify.',
   },
   {
-    step: '02',
-    title: 'Izinkan Sumber Tidak Dikenal',
+    step: 'LANGKAH 02',
+    title: 'Izinkan Sumber Tepercaya',
     description:
-      'Buka pengaturan keamanan browser atau pengelola berkas Android, lalu aktifkan izin instalasi aplikasi.',
-    icon: ShieldCheck,
+      'Buka berkas APK lalu aktifkan izin "Instal aplikasi yang tidak dikenal" untuk browser Anda.',
   },
   {
-    step: '03',
-    title: 'Instal & Nikmati Musik',
+    step: 'LANGKAH 03',
+    title: 'Pasang & Dengarkan',
     description:
-      'Jalankan berkas APK, masuk dengan akun Anda, dan nikmati pengalaman audio Android Native sepenuhnya.',
-    icon: CheckCircle2,
+      'Ketuk Pasang, masuk dengan akun Anda, dan nikmati pengalaman audio penuh di Android 8.0+.',
   },
 ];
 
 export default function WebLandingPage() {
-  const [release, setRelease] = useState<AppReleaseData | null>(null);
-  const [loadingRelease, setLoadingRelease] = useState(true);
+  const [release, setRelease] = useState<AppReleaseData>({
+    maintenance: false,
+    version: 'v1.0.0',
+    downloadUrl: '#',
+    fileSizeMb: '—',
+    publishedAt: null,
+  });
+  const [activeTab, setActiveTab] = useState<PreviewTabKey>('audio');
 
-  const heroRef = useRef<HTMLElement>(null);
-
+  const heroRef = useRef<HTMLElement | null>(null);
   const { scrollYProgress } = useScroll();
-  const smoothProgress = useSpring(scrollYProgress, {
-    stiffness: 140,
-    damping: 24,
+  const scaleX = useSpring(scrollYProgress, {
+    stiffness: 180,
+    damping: 30,
     restDelta: 0.001,
   });
 
-  const { scrollYProgress: heroScrollProgress } = useScroll({
-    target: heroRef,
-    offset: ['start start', 'end start'],
+  const heroMouseX = useMotionValue(0);
+  const heroMouseY = useMotionValue(0);
+  const heroRotateY = useSpring(useTransform(heroMouseX, [-0.5, 0.5], [-10, 10]), {
+    stiffness: 160,
+    damping: 20,
   });
+  const heroRotateX = useSpring(useTransform(heroMouseY, [-0.5, 0.5], [10, -10]), {
+    stiffness: 160,
+    damping: 20,
+  });
+  const heroScrollY = useTransform(scrollYProgress, [0, 0.35], [0, -36]);
 
-  const heroRotateX = useTransform(heroScrollProgress, [0, 1], [0, 18]);
-  const heroY = useTransform(heroScrollProgress, [0, 1], [0, 72]);
-  const heroOpacity = useTransform(heroScrollProgress, [0, 0.85], [1, 0.15]);
-  const heroScale = useTransform(heroScrollProgress, [0, 1], [1, 0.94]);
-
-  const rawRotateX = useMotionValue(0);
-  const rawRotateY = useMotionValue(0);
-  const tiltRotateX = useSpring(rawRotateX, { stiffness: 180, damping: 22 });
-  const tiltRotateY = useSpring(rawRotateY, { stiffness: 180, damping: 22 });
-
-  const cardRawRotateX = useMotionValue(0);
-  const cardRawRotateY = useMotionValue(0);
-  const cardTiltX = useSpring(cardRawRotateX, { stiffness: 160, damping: 20 });
-  const cardTiltY = useSpring(cardRawRotateY, { stiffness: 160, damping: 20 });
+  const cardMouseX = useMotionValue(0);
+  const cardMouseY = useMotionValue(0);
+  const cardRotateY = useSpring(useTransform(cardMouseX, [-0.5, 0.5], [-6, 6]), {
+    stiffness: 180,
+    damping: 22,
+  });
+  const cardRotateX = useSpring(useTransform(cardMouseY, [-0.5, 0.5], [6, -6]), {
+    stiffness: 180,
+    damping: 22,
+  });
 
   useEffect(() => {
     let active = true;
     const fetchRelease = async () => {
       try {
         const res = await fetch('/api/app-release', { cache: 'no-store' });
-        if (!res.ok) throw new Error('Failed to fetch release');
-        const data = (await res.json()) as AppReleaseData;
-        if (active) {
-          setRelease(data);
-        }
+        if (!res.ok) return;
+        const data = (await res.json()) as Partial<AppReleaseData>;
+        if (!active) return;
+        setRelease((prev) => ({
+          maintenance: Boolean(data.maintenance),
+          version: data.version || prev.version,
+          downloadUrl: data.downloadUrl || prev.downloadUrl,
+          fileSizeMb:
+            data.fileSizeMb !== undefined && data.fileSizeMb !== null
+              ? data.fileSizeMb
+              : prev.fileSizeMb,
+          publishedAt: data.publishedAt ?? prev.publishedAt,
+        }));
       } catch {
-        if (active) {
-          setRelease(null);
-        }
-      } finally {
-        if (active) {
-          setLoadingRelease(false);
-        }
+        // Fallback default
       }
     };
     fetchRelease();
@@ -169,92 +263,98 @@ export default function WebLandingPage() {
 
   const handleHeroPointerMove = (e: React.PointerEvent<HTMLElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width - 0.5;
-    const py = (e.clientY - rect.top) / rect.height - 0.5;
-    rawRotateX.set(-py * 14);
-    rawRotateY.set(px * 16);
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    heroMouseX.set(x);
+    heroMouseY.set(y);
   };
 
   const handleHeroPointerLeave = () => {
-    rawRotateX.set(0);
-    rawRotateY.set(0);
+    heroMouseX.set(0);
+    heroMouseY.set(0);
   };
 
   const handleCardPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const px = (e.clientX - rect.left) / rect.width - 0.5;
-    const py = (e.clientY - rect.top) / rect.height - 0.5;
-    cardRawRotateX.set(-py * 12);
-    cardRawRotateY.set(px * 14);
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    cardMouseX.set(x);
+    cardMouseY.set(y);
   };
 
   const handleCardPointerLeave = () => {
-    cardRawRotateX.set(0);
-    cardRawRotateY.set(0);
+    cardMouseX.set(0);
+    cardMouseY.set(0);
   };
 
-  const isMaintenance = Boolean(release?.maintenance);
-  const hasDownload = Boolean(release?.downloadUrl) && !isMaintenance;
-  const formattedSize = release?.fileSizeMb ? `${release.fileSizeMb} MB` : 'APK';
-  const versionLabel = release?.version || 'Terbaru';
+  const currentTab =
+    PREVIEW_TABS.find((t) => t.key === activeTab) || PREVIEW_TABS[0];
+
+  const formattedSize =
+    typeof release.fileSizeMb === 'number'
+      ? `${release.fileSizeMb} MB`
+      : String(release.fileSizeMb).includes('MB')
+      ? String(release.fileSizeMb)
+      : `${release.fileSizeMb} MB`;
 
   return (
-    <div className="min-h-screen bg-[#08080A] text-white selection:bg-white selection:text-black overflow-x-clip">
-      {/* Top Scroll Progress Line */}
+    <div className="min-h-screen bg-[#030712] text-white antialiased selection:bg-sky-500/30 selection:text-sky-200">
       <motion.div
-        className="fixed top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-zinc-600 via-white to-zinc-400 origin-left z-50"
-        style={{ scaleX: smoothProgress }}
+        style={{ scaleX }}
+        className="fixed top-0 left-0 right-0 z-50 h-0.5 origin-left bg-sky-400"
       />
 
-      {/* Ambient Minimalist Monochrome Grid & Glow */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className="absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage:
-              'linear-gradient(to right, rgba(255,255,255,0.35) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.35) 1px, transparent 1px)',
-            backgroundSize: '64px 64px',
-          }}
-        />
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 h-[460px] w-[760px] rounded-full bg-white/[0.05] blur-[140px]" />
-      </div>
-
-      {/* Sticky Minimalist Navbar */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#08080A]/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5 sm:px-6">
+      <header className="sticky top-0 z-40 h-14 border-b border-white/10 bg-[#030712]/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-full max-w-6xl items-center justify-between border-x border-white/10 px-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <img
-              src="https://i.ibb.co.com/zVTpRV9L/Proyek-Baru-598-652-F167.png"
-              alt="NueTify"
-              className="h-7 w-auto object-contain"
-            />
-            <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-zinc-300">
-              <span className="h-1.5 w-1.5 rounded-full bg-white" />
-              {versionLabel} · Android
+            <Link href="/" className="flex items-center gap-2.5">
+              <img
+                src="https://i.ibb.co.com/zVTpRV9L/Proyek-Baru-598-652-F167.png"
+                alt="NueTify Logo"
+                className="h-7 w-7 rounded-md object-contain"
+              />
+              <span className="text-sm font-semibold tracking-tight text-white">
+                NueTify
+              </span>
+            </Link>
+            <span className="hidden rounded border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-[11px] text-sky-400 sm:inline-block">
+              {release.version}
             </span>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <span className="inline-flex sm:hidden items-center rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-[11px] text-zinc-300">
-              {versionLabel}
-            </span>
-            {hasDownload ? (
-              <motion.a
-                href={release?.downloadUrl}
-                download
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-black transition-colors hover:bg-zinc-200"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Unduh APK
-              </motion.a>
+          <nav className="hidden items-center gap-6 text-xs font-medium text-white/70 md:flex">
+            <a href="#preview" className="transition-colors hover:text-white">
+              Preview
+            </a>
+            <a href="#fitur" className="transition-colors hover:text-white">
+              Fitur
+            </a>
+            <a
+              href="#cara-pasang"
+              className="transition-colors hover:text-white"
+            >
+              Cara Pasang
+            </a>
+            <Link
+              href="/privacy"
+              className="transition-colors hover:text-white"
+            >
+              Privasi
+            </Link>
+          </nav>
+
+          <div className="flex items-center gap-3">
+            {release.maintenance ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-3.5 py-1.5 font-mono text-[11px] font-medium text-amber-300">
+                <Wrench className="h-3.5 w-3.5" />
+                Maintenance
+              </span>
             ) : (
               <a
-                href="#download-portal"
-                className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/[0.06] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-white/10"
+                href={release.downloadUrl}
+                className="inline-flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-gray-950 transition hover:bg-sky-100"
               >
-                <Smartphone className="h-3.5 w-3.5" />
+                <Download className="h-3.5 w-3.5" />
                 Unduh APK
               </a>
             )}
@@ -262,253 +362,293 @@ export default function WebLandingPage() {
         </div>
       </header>
 
-      <main className="relative z-10">
-        {/* Hero Section with Full 3D Extruded Text */}
+      <main className="relative mx-auto max-w-6xl border-x border-white/10">
         <section
-          id="download-portal"
           ref={heroRef}
           onPointerMove={handleHeroPointerMove}
           onPointerLeave={handleHeroPointerLeave}
-          className="mx-auto flex max-w-6xl flex-col items-center px-4 pt-16 pb-20 text-center sm:px-6 sm:pt-24 sm:pb-28"
-          style={{ perspective: '1200px' }}
+          className="relative overflow-hidden border-b border-white/10 px-6 py-20 sm:px-10 sm:py-28"
         >
-          <motion.div
-            style={{
-              rotateX: heroRotateX,
-              y: heroY,
-              opacity: heroOpacity,
-              scale: heroScale,
-              transformStyle: 'preserve-3d',
-            }}
-            className="flex w-full flex-col items-center"
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55 }}
-              className="mb-8 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-4 py-1.5 text-xs font-medium tracking-wide text-zinc-200 backdrop-blur-md"
-            >
-              <Smartphone className="h-3.5 w-3.5 text-zinc-300" />
-              <span>Eksklusif Perangkat Android · Native APK</span>
-            </motion.div>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1/2 left-1/2 h-80 w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-sky-500/10 blur-3xl"
+          />
 
-            {/* 3D Interactive Pointer-Tracked Extruded Title */}
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <span className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-1 font-mono text-xs uppercase tracking-widest text-sky-400">
+              <Smartphone className="h-3.5 w-3.5" />
+              ANDROID NATIVE · {release.version}
+            </span>
+
             <motion.div
               style={{
-                rotateX: tiltRotateX,
-                rotateY: tiltRotateY,
-                transformStyle: 'preserve-3d',
+                perspective: 1100,
+                y: heroScrollY,
               }}
-              className="relative my-2 select-none py-4"
+              className="mb-6 select-none"
             >
-              {/* Layer 1: Deep Thin Contour */}
-              <span
-                aria-hidden="true"
+              <motion.div
                 style={{
-                  transform: 'translateZ(-24px)',
-                  WebkitTextStroke: '1px rgba(255,255,255,0.22)',
+                  rotateX: heroRotateX,
+                  rotateY: heroRotateY,
+                  transformStyle: 'preserve-3d',
                 }}
-                className="pointer-events-none absolute inset-0 flex items-center justify-center text-[clamp(3.6rem,14vw,9.5rem)] font-black leading-none tracking-[-0.06em] text-transparent"
+                className="relative inline-block"
               >
-                NUETIFY
-              </span>
-
-              {/* Layer 2: Silver Depth Shadow */}
-              <span
-                aria-hidden="true"
-                style={{ transform: 'translateZ(-12px)' }}
-                className="pointer-events-none absolute inset-0 flex items-center justify-center text-[clamp(3.6rem,14vw,9.5rem)] font-black leading-none tracking-[-0.06em] text-zinc-500/45 blur-[0.5px]"
-              >
-                NUETIFY
-              </span>
-
-              {/* Layer 3: Crisp White Front Layer */}
-              <h1
-                style={{ transform: 'translateZ(24px)' }}
-                className="relative text-[clamp(3.6rem,14vw,9.5rem)] font-black leading-none tracking-[-0.06em] text-white drop-shadow-[0_12px_36px_rgba(255,255,255,0.12)]"
-              >
-                NUETIFY
-              </h1>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    transform: 'translateZ(-28px)',
+                    WebkitTextStroke: '1px rgba(56,189,248,0.28)',
+                  }}
+                  className="pointer-events-none absolute inset-0 text-6xl font-black tracking-tighter text-transparent sm:text-8xl"
+                >
+                  NueTify
+                </span>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    transform: 'translateZ(-14px)',
+                    WebkitTextStroke: '1px rgba(56,189,248,0.28)',
+                  }}
+                  className="pointer-events-none absolute inset-0 text-6xl font-black tracking-tighter text-transparent sm:text-8xl"
+                >
+                  NueTify
+                </span>
+                <h1
+                  style={{ transform: 'translateZ(12px)' }}
+                  className="relative text-6xl font-black tracking-tighter text-white sm:text-8xl"
+                >
+                  NueTify
+                </h1>
+              </motion.div>
             </motion.div>
 
-            <motion.p
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
-              className="mt-4 max-w-xl text-sm leading-relaxed text-zinc-400 sm:text-base"
-            >
-              Portal distribusi resmi aplikasi musik Android Native NueTify.
-              Ringan, monokrom, dan dirancang khusus untuk pemutaran audio
-              resolusi tinggi tanpa kompromi.
-            </motion.p>
+            <p className="max-w-xl text-sm leading-relaxed text-white/65 sm:text-base">
+              Platform streaming musik &amp; komunitas pendengar berarsitektur
+              ringan khusus Android. Stabil 24/7 di latar belakang dengan
+              equalizer studio dan mode offline.
+            </p>
 
-            {/* Primary Download CTA */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="mt-9 flex flex-col items-center gap-3"
-            >
-              {isMaintenance ? (
-                <div className="inline-flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-6 py-4 text-left">
-                  <Wrench className="h-5 w-5 shrink-0 text-amber-300" />
-                  <div>
-                    <p className="text-sm font-semibold text-amber-200">
-                      Portal Unduhan Sedang Pemeliharaan
-                    </p>
-                    <p className="text-xs text-amber-200/75">
-                      Rilis terbaru sedang disiapkan. Silakan coba beberapa saat
-                      lagi.
-                    </p>
-                  </div>
+            <div className="mt-9 flex flex-wrap items-center justify-center gap-3.5">
+              {release.maintenance ? (
+                <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/10 px-6 py-3 text-sm font-medium text-amber-300">
+                  <Wrench className="h-4 w-4" />
+                  Sedang Maintenance · Coba Lagi Nanti
                 </div>
-              ) : hasDownload ? (
-                <motion.a
-                  href={release?.downloadUrl}
-                  download
-                  whileHover={{ scale: 1.03, y: -2 }}
-                  whileTap={{ scale: 0.97 }}
-                  className="group inline-flex items-center gap-3.5 rounded-2xl bg-white px-7 py-4 text-black shadow-[0_0_40px_rgba(255,255,255,0.18)] transition-colors hover:bg-zinc-200"
-                >
-                  <Download className="h-5 w-5 transition-transform group-hover:translate-y-0.5" />
-                  <div className="text-left">
-                    <div className="text-sm font-bold tracking-tight sm:text-base">
-                      Unduh NueTify untuk Android
-                    </div>
-                    <div className="text-[11px] font-medium text-zinc-600">
-                      {versionLabel} · {formattedSize}
-                    </div>
-                  </div>
-                </motion.a>
               ) : (
-                <div className="inline-flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.04] px-6 py-4 text-sm text-zinc-300">
-                  <Smartphone className="h-4 w-4 text-zinc-400" />
-                  <span>
-                    {loadingRelease
-                      ? 'Memeriksa rilis APK terbaru...'
-                      : 'Rilis APK belum tersedia saat ini.'}
+                <a
+                  href={release.downloadUrl}
+                  className="inline-flex items-center gap-2.5 rounded-full bg-white px-6 py-3 text-sm font-semibold text-gray-950 transition hover:bg-sky-100"
+                >
+                  <Download className="h-4 w-4" />
+                  Unduh untuk Android
+                  <span className="rounded-full bg-gray-950/10 px-2 py-0.5 font-mono text-[11px] font-medium text-gray-800">
+                    {release.version} · {formattedSize}
                   </span>
-                </div>
+                </a>
               )}
 
               <a
                 href="#fitur"
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-zinc-400 transition-colors hover:text-white"
+                className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.03] px-6 py-3 text-sm font-medium text-white transition hover:border-white/30 hover:bg-white/[0.07]"
               >
-                <span>Jelajahi arsitektur fitur</span>
-                <ArrowDown className="h-3.5 w-3.5" />
+                Jelajahi Fitur
+                <ArrowDown className="h-4 w-4 text-sky-400" />
               </a>
-            </motion.div>
-          </motion.div>
+            </div>
+          </div>
         </section>
 
-        {/* Interactive 3D Showcase Card */}
+        <section className="grid grid-cols-2 divide-y divide-white/10 border-b border-white/10 lg:grid-cols-4 lg:divide-x lg:divide-y-0">
+          <div className="p-5 sm:p-6">
+            <p className="font-mono text-xs uppercase tracking-widest text-sky-400">
+              Platform
+            </p>
+            <p className="mt-1.5 text-sm font-medium text-white">
+              Android 8.0+ Only
+            </p>
+          </div>
+          <div className="p-5 sm:p-6">
+            <p className="font-mono text-xs uppercase tracking-widest text-sky-400">
+              Rilis Otomatis
+            </p>
+            <p className="mt-1.5 font-mono text-sm font-medium text-white">
+              {release.version}
+            </p>
+          </div>
+          <div className="p-5 sm:p-6">
+            <p className="font-mono text-xs uppercase tracking-widest text-sky-400">
+              Ukuran APK
+            </p>
+            <p className="mt-1.5 font-mono text-sm font-medium text-white">
+              {formattedSize}
+            </p>
+          </div>
+          <div className="p-5 sm:p-6">
+            <p className="font-mono text-xs uppercase tracking-widest text-sky-400">
+              Pengembang
+            </p>
+            <p className="mt-1.5 text-sm font-medium text-white">
+              PT Nueva Group
+            </p>
+          </div>
+        </section>
+
+        <div
+          aria-hidden="true"
+          className={`h-6 border-b border-white/10 ${DIAGONAL_HATCH_CLASS}`}
+        />
+
         <section
-          className="mx-auto max-w-5xl px-4 pb-24 sm:px-6"
-          style={{ perspective: '1200px' }}
+          id="preview"
+          className="border-b border-white/10 px-6 py-16 sm:px-10 sm:py-20"
         >
-          <motion.div
-            initial={{ opacity: 0, y: 40, rotateX: 10 }}
-            whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
-            viewport={{ once: true, amount: 0.25 }}
-            transition={{ duration: 0.7 }}
-            onPointerMove={handleCardPointerMove}
-            onPointerLeave={handleCardPointerLeave}
-            style={{
-              rotateX: cardTiltX,
-              rotateY: cardTiltY,
-              transformStyle: 'preserve-3d',
-            }}
-            className="relative rounded-3xl border border-white/15 bg-gradient-to-b from-white/[0.07] to-white/[0.02] p-6 shadow-[0_30px_90px_rgba(0,0,0,0.75)] sm:p-10"
-          >
-            <div className="flex flex-col justify-between gap-6 border-b border-white/10 pb-6 sm:flex-row sm:items-center">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
-                  Arsitektur Native
-                </p>
-                <h2 className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">
-                  Dibangun Khusus untuk Ekosistem Android
-                </h2>
-              </div>
-              <div className="inline-flex items-center gap-2 self-start rounded-full border border-white/15 bg-black/50 px-3.5 py-1.5 text-xs text-zinc-300">
-                <span className="h-2 w-2 rounded-full bg-white" />
-                <span>Sinkronisasi Rilis Otomatis</span>
-              </div>
+          <div className="mb-10 flex flex-col justify-between gap-6 md:flex-row md:items-end">
+            <div>
+              <p className="font-mono text-xs uppercase tracking-widest text-sky-400">
+                01 // STUDIO PREVIEW
+              </p>
+              <h2 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                Arsitektur Native Android
+              </h2>
             </div>
 
-            <div
-              className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-              style={{ transformStyle: 'preserve-3d' }}
-            >
-              {SHOWCASE_CHIPS.map((chip) => {
-                const Icon = chip.icon;
+            <div className="flex flex-wrap gap-2">
+              {PREVIEW_TABS.map((tab) => {
+                const isActive = tab.key === activeTab;
                 return (
-                  <div
-                    key={chip.label}
-                    style={{ transform: 'translateZ(28px)' }}
-                    className="flex items-center gap-3 rounded-2xl border border-white/15 bg-[#0D0D11]/90 px-4 py-4 shadow-[0_14px_30px_rgba(0,0,0,0.45)]"
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`rounded-full border px-4 py-1.5 font-mono text-xs transition ${
+                      isActive
+                        ? 'border-sky-400 bg-sky-400/15 text-sky-300'
+                        : 'border-white/10 bg-white/[0.02] text-white/60 hover:border-white/25 hover:text-white'
+                    }`}
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/[0.06]">
-                      <Icon className="h-4 w-4 text-white" />
-                    </div>
-                    <span className="text-xs font-semibold leading-snug text-zinc-100">
-                      {chip.label}
-                    </span>
-                  </div>
+                    {tab.label}
+                  </button>
                 );
               })}
             </div>
-          </motion.div>
-        </section>
-
-        {/* 6-Card Minimalist 3D Bento Feature Grid */}
-        <section
-          id="fitur"
-          className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24"
-          style={{ perspective: '1200px' }}
-        >
-          <div className="mb-12 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
-                Kemampuan Inti
-              </p>
-              <h2 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                Dirancang untuk Pengalaman Musik Murni
-              </h2>
-            </div>
-            <p className="max-w-md text-sm text-zinc-400">
-              Setiap modul dioptimalkan untuk efisiensi baterai, stabilitas
-              pemutaran, dan interaksi komunitas real-time.
-            </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {BENTO_FEATURES.map((feature, idx) => {
-              const Icon = feature.icon;
+          <div style={{ perspective: 1200 }}>
+            <motion.div
+              onPointerMove={handleCardPointerMove}
+              onPointerLeave={handleCardPointerLeave}
+              style={{
+                rotateX: cardRotateX,
+                rotateY: cardRotateY,
+                transformStyle: 'preserve-3d',
+              }}
+              className="overflow-hidden rounded-xl border border-white/10 bg-[#050a18] shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-white/10 bg-white/[0.02] px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+                  <span className="ml-2 font-mono text-xs text-white/50">
+                    nuetify-android / {currentTab.fileName}
+                  </span>
+                </div>
+                <span className="font-mono text-[11px] uppercase tracking-widest text-sky-400">
+                  {currentTab.statusTag}
+                </span>
+              </div>
+
+              <div className="grid divide-y divide-white/10 lg:grid-cols-12 lg:divide-x lg:divide-y-0">
+                <div className="p-6 sm:p-8 lg:col-span-7">
+                  <span className="font-mono text-xs uppercase tracking-widest text-sky-400">
+                    {currentTab.badge}
+                  </span>
+                  <h3 className="mt-2 text-xl font-semibold text-white sm:text-2xl">
+                    {currentTab.title}
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-white/65">
+                    {currentTab.description}
+                  </p>
+
+                  <ul className="mt-6 space-y-3">
+                    {currentTab.highlights.map((item) => (
+                      <li
+                        key={item}
+                        className="flex items-start gap-2.5 text-sm text-white/80"
+                      >
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div
+                  className={`flex flex-col justify-between p-6 sm:p-8 lg:col-span-5 ${DIAGONAL_HATCH_CLASS}`}
+                >
+                  <div className="rounded-lg border border-white/10 bg-[#030712]/90 p-5 backdrop-blur">
+                    <p className="font-mono text-xs uppercase tracking-widest text-sky-400">
+                      {currentTab.metricLabel}
+                    </p>
+                    <p className="mt-3 font-mono text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                      {currentTab.metricValue}
+                    </p>
+                    <p className="mt-2 text-xs text-white/55">
+                      {currentTab.metricSub}
+                    </p>
+                  </div>
+
+                  <div className="mt-6 flex items-center justify-between border-t border-white/10 pt-4 font-mono text-xs text-white/50">
+                    <span>TARGET SDK</span>
+                    <span className="text-white/80">ANDROID 8.0+ (API 26+)</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </section>
+
+        <div
+          aria-hidden="true"
+          className={`h-6 border-b border-white/10 ${DIAGONAL_HATCH_CLASS}`}
+        />
+
+        <section id="fitur" className="border-b border-white/10">
+          <div className="border-b border-white/10 px-6 py-12 sm:px-10">
+            <p className="font-mono text-xs uppercase tracking-widest text-sky-400">
+              02 // KAPABILITAS INTI
+            </p>
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+              Dirancang Khusus untuk Kecepatan
+            </h2>
+          </div>
+
+          <div className="grid gap-px bg-white/10 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map((feat, idx) => {
+              const Icon = feat.icon;
               return (
                 <motion.div
-                  key={feature.title}
-                  initial={{ opacity: 0, y: 36, rotateX: 12 }}
+                  key={feat.code}
+                  initial={{ opacity: 0, y: 20, rotateX: 8 }}
                   whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
                   viewport={{ once: true, amount: 0.2 }}
-                  transition={{ duration: 0.5, delay: idx * 0.06 }}
-                  whileHover={{ y: -6, scale: 1.015 }}
-                  className="group flex flex-col justify-between rounded-3xl border border-white/12 bg-white/[0.03] p-6 transition-colors hover:border-white/25 hover:bg-white/[0.05]"
+                  transition={{ duration: 0.45, delay: idx * 0.05 }}
+                  className="flex flex-col justify-between bg-[#030712] p-6 sm:p-8"
                 >
                   <div>
-                    <div className="mb-5 flex items-center justify-between">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.05] text-white transition-transform group-hover:scale-105">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-zinc-400">
-                        {feature.tag}
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs uppercase tracking-widest text-sky-400">
+                        {feat.code}
                       </span>
+                      <Icon className="h-4 w-4 text-white/40" />
                     </div>
-                    <h3 className="text-lg font-bold tracking-tight text-white">
-                      {feature.title}
+                    <h3 className="mt-5 text-lg font-semibold text-white">
+                      {feat.title}
                     </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                      {feature.description}
+                    <p className="mt-2 text-sm leading-relaxed text-white/60">
+                      {feat.description}
                     </p>
                   </div>
                 </motion.div>
@@ -517,125 +657,88 @@ export default function WebLandingPage() {
           </div>
         </section>
 
-        {/* 3-Step Android Installation Guide */}
-        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-24">
-          <div className="mb-12 text-center">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-zinc-400">
-              Panduan Instalasi Android
+        <div
+          aria-hidden="true"
+          className={`h-6 border-b border-white/10 ${DIAGONAL_HATCH_CLASS}`}
+        />
+
+        <section id="cara-pasang" className="border-b border-white/10">
+          <div className="border-b border-white/10 px-6 py-12 sm:px-10">
+            <p className="font-mono text-xs uppercase tracking-widest text-sky-400">
+              03 // INSTALASI ANDROID
             </p>
-            <h2 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-              Tiga Langkah Cepat Memulai
+            <h2 className="mt-2 text-2xl font-bold tracking-tight text-white sm:text-3xl">
+              Tiga Langkah Mulai Mendengarkan
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            {INSTALL_STEPS.map((item, idx) => {
-              const Icon = item.icon;
-              return (
-                <motion.div
-                  key={item.step}
-                  initial={{ opacity: 0, y: 28 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, amount: 0.25 }}
-                  transition={{ duration: 0.5, delay: idx * 0.1 }}
-                  className="relative rounded-3xl border border-white/12 bg-[#0C0C10] p-6"
-                >
-                  <div className="mb-5 flex items-center justify-between">
-                    <span className="font-mono text-2xl font-black tracking-tight text-zinc-500">
-                      {item.step}
-                    </span>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/[0.04]">
-                      <Icon className="h-4 w-4 text-white" />
-                    </div>
-                  </div>
-                  <h3 className="text-base font-bold text-white">
-                    {item.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-                    {item.description}
-                  </p>
-                </motion.div>
-              );
-            })}
+          <div className="grid divide-y divide-white/10 md:grid-cols-3 md:divide-x md:divide-y-0">
+            {INSTALL_STEPS.map((item) => (
+              <div key={item.step} className="p-6 sm:p-8">
+                <span className="font-mono text-xs uppercase tracking-widest text-sky-400">
+                  {item.step}
+                </span>
+                <h3 className="mt-3 text-base font-semibold text-white">
+                  {item.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-white/60">
+                  {item.description}
+                </p>
+              </div>
+            ))}
           </div>
         </section>
 
-        {/* Closing 3D CTA */}
         <section
-          className="mx-auto max-w-5xl px-4 pt-8 pb-24 sm:px-6"
-          style={{ perspective: '1200px' }}
+          className={`border-b border-white/10 px-6 py-16 text-center sm:px-10 sm:py-20 ${DIAGONAL_HATCH_CLASS}`}
         >
-          <motion.div
-            initial={{ opacity: 0, y: 32, rotateX: 10 }}
-            whileInView={{ opacity: 1, y: 0, rotateX: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.6 }}
-            className="flex flex-col items-center rounded-3xl border border-white/15 bg-gradient-to-b from-white/[0.08] to-white/[0.02] px-6 py-14 text-center sm:px-12"
-          >
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.05] px-3.5 py-1 text-[11px] font-medium text-zinc-300">
-              <Smartphone className="h-3.5 w-3.5" />
-              Hanya untuk Android
-            </span>
-            <h2 className="mt-5 text-3xl font-black tracking-tight text-white sm:text-5xl">
-              Siap Mendengarkan Tanpa Batas?
+          <div className="mx-auto max-w-2xl rounded-xl border border-white/10 bg-[#030712] p-8 sm:p-10">
+            <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sky-400">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+              Siap Pasang NueTify di Android?
             </h2>
-            <p className="mt-3 max-w-lg text-sm text-zinc-400 sm:text-base">
-              Dapatkan rilis Android Native terbaru secara langsung dengan
-              pembaruan versi dan ukuran berkas otomatis.
+            <p className="mt-3 text-sm text-white/65">
+              Rilis resmi {release.version} · Ukuran {formattedSize} · Bebas
+              iklan mengganggu.
             </p>
-
-            <div className="mt-8">
-              {isMaintenance ? (
-                <div className="inline-flex items-center gap-2.5 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-6 py-3.5 text-sm font-medium text-amber-200">
+            <div className="mt-7 flex justify-center">
+              {release.maintenance ? (
+                <span className="inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-500/10 px-6 py-3 text-sm font-medium text-amber-300">
                   <Wrench className="h-4 w-4" />
-                  Sedang Pemeliharaan
-                </div>
-              ) : hasDownload ? (
-                <motion.a
-                  href={release?.downloadUrl}
-                  download
-                  whileHover={{ scale: 1.03, y: -2 }}
-                  whileTap={{ scale: 0.97 }}
-                  className="inline-flex items-center gap-3 rounded-2xl bg-white px-7 py-4 text-sm font-bold text-black shadow-[0_0_36px_rgba(255,255,255,0.16)] transition-colors hover:bg-zinc-200 sm:text-base"
-                >
-                  <Download className="h-5 w-5" />
-                  <span>
-                    Unduh APK ({versionLabel} · {formattedSize})
-                  </span>
-                </motion.a>
-              ) : (
-                <span className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/[0.04] px-6 py-3.5 text-sm text-zinc-400">
-                  {loadingRelease
-                    ? 'Memuat informasi rilis...'
-                    : 'Berkas APK belum tersedia'}
+                  Server Rilis Sedang Maintenance
                 </span>
+              ) : (
+                <a
+                  href={release.downloadUrl}
+                  className="inline-flex items-center gap-2 rounded-full bg-white px-7 py-3 text-sm font-semibold text-gray-950 transition hover:bg-sky-100"
+                >
+                  <Download className="h-4 w-4" />
+                  Unduh APK {release.version}
+                </a>
               )}
             </div>
-          </motion.div>
-        </section>
-      </main>
-
-      {/* Minimalist Footer */}
-      <footer className="relative z-10 border-t border-white/10 bg-[#08080A]">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 text-xs text-zinc-400 sm:flex-row sm:px-6">
-          <div className="flex flex-col items-center gap-1 sm:items-start">
-            <span className="font-semibold text-white">PT Nueva Group</span>
-            <span>Hanya tersedia untuk Android</span>
           </div>
+        </section>
 
+        <footer className="flex flex-col items-center justify-between gap-4 px-6 py-8 text-xs text-white/50 sm:flex-row sm:px-10">
+          <p className="font-mono">
+            PT Nueva Group · NueTify (Android Only)
+          </p>
           <div className="flex items-center gap-6">
             <Link
               href="/privacy"
               className="transition-colors hover:text-white"
             >
-              Kebijakan Privasi
+              /privacy
             </Link>
             <Link href="/terms" className="transition-colors hover:text-white">
-              Syarat &amp; Ketentuan
+              /terms
             </Link>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </main>
     </div>
   );
 }
