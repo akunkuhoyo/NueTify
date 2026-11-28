@@ -430,7 +430,46 @@ const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
     }
   }, [user, draft, sending, cooldownSec, latest, replyTarget, meStats, profile, isDev, scrollToBottom]);
 
-  const handleDelete = useCallback(async (messageId: string) => { if (!user) return; setErrorMsg(null); const prevMessages = messages; const prevPinned = pinned; deletedIdsRef.current.add(messageId); setMessages((prev) => prev.filter((m) => m.id !== messageId)); setPinned((p) => (p?.id === messageId ? null : p)); if (replyTarget?.id === messageId) setReplyTarget(null); try { const token = await getAccessToken(); if (!token) { deletedIdsRef.current.delete(messageId); setMessages(prevMessages); setPinned(prevPinned); return; } const res = await fetch('/api/global-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'delete', messageId }) }); if (!res.ok) { const data = await res.json().catch(() => ({})); deletedIdsRef.current.delete(messageId); setMessages(prevMessages); setPinned(prevPinned); setErrorMsg(data.error || 'Gagal menghapus pesan'); } } catch deletedIdsRef.current.delete(messageId); { setMessages(prevMessages); setPinned(prevPinned); setErrorMsg('Gagal menghapus pesan'); } }, [user, messages, pinned, getAccessToken, replyTarget]);
+  const handleDelete = useCallback(async (messageId: string) => {
+    if (!user) return;
+    setErrorMsg('');
+    const prevMessages = messages;
+    const prevPinned = pinned;
+    const prevLatest = latest;
+
+    deletedIdsRef.current.add(messageId);
+    const nextList = prevMessages.filter((m) => m.id !== messageId);
+    setMessages(nextList);
+    if (prevPinned?.id === messageId) setPinned(null);
+    const nextLatest = [...nextList].reverse().find((m) => !m.is_system_warning) || null;
+    setLatest(nextLatest);
+
+    try {
+      const supabase = getSupabaseClient();
+      const { data: sessData } = (await supabase?.auth.getSession()) || { data: { session: null } };
+      const token = sessData.session?.access_token;
+      if (!token) throw new Error('Sesi login tidak ditemukan.');
+
+      const res = await fetch('/api/global-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action: 'delete', messageId }),
+      });
+      if (!res.ok) {
+        const errData = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(errData.error || 'Gagal menghapus pesan.');
+      }
+    } catch (err) {
+      deletedIdsRef.current.delete(messageId);
+      setMessages(prevMessages);
+      setPinned(prevPinned);
+      setLatest(prevLatest);
+      setErrorMsg(err instanceof Error ? err.message : 'Gagal menghapus pesan.');
+    }
+  }, [user, messages, pinned, latest]);
 
   const handleTogglePin = useCallback(
     async (msg: ChatMessage) => { const nextPinned = !msg.is_pinned; if (!isDev) return; setErrorMsg(null); setPinned(nextPinned ? { ...msg, is_pinned: true } : null); setMessages((prev) => prev.map((m) => ({ ...m, is_pinned: nextPinned ? m.id === msg.id : false }))); try { const token = await getAccessToken(); if (!token) { await fetchChat(); return; } const res = await fetch('/api/global-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'pin', messageId: msg.id, pinned: nextPinned }) }); if (!res.ok) await fetchChat(); } catch { await fetchChat(); } }, [isDev, getAccessToken, fetchChat]
