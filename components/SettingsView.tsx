@@ -334,8 +334,8 @@ export function SettingsView() {
     updateSettings({ ytCookie: cookieDraft.trim() });
     showToast(
       cookieDraft.trim()
-        ? 'YouTube Music cookie saved'
-        : 'YouTube Music cookie cleared'
+        ? 'NueTify cookie saved'
+        : 'NueTify cookie cleared'
     );
   };
 
@@ -1252,7 +1252,7 @@ export function SettingsView() {
                 <div className="min-w-0">
                   <p className="text-[14.5px] font-semibold">Playback Speed</p>
                   <p className="text-[12.5px] opacity-60">
-                    Applied live to the YouTube Music audio stream
+                    Applied live to the NueTify audio stream
                   </p>
                 </div>
               </div>
@@ -1372,7 +1372,7 @@ export function SettingsView() {
             <PreferenceRow
               icon={Radio}
               title="Auto-Continue Radio (Automix)"
-              description="Queue related YouTube Music tracks when reaching the end"
+              description="Queue related NueTify tracks when reaching the end"
               trailing={
                 <M3Switch
                   label="Auto-Continue Radio"
@@ -1552,7 +1552,7 @@ export function SettingsView() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[14.5px] font-semibold">
-                    YouTube Music Cookie (Optional)
+                    NueTify Cookie (Optional)
                   </p>
                   <p className="text-[12.5px] opacity-60">
                     Stored locally in your browser and forwarded to ytmusic-api for personalized shelves
