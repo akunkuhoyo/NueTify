@@ -609,7 +609,7 @@ setHasMoreRemote(collectedNew.length > 0 || lastHasMore);
                   : 'Search songs, artists, albums...'
               }
               aria-label={
-                scope === 'local' ? 'Search Local Library' : 'Search YouTube Music'
+                scope === 'local' ? 'Search Local Library' : 'Search NueTify'
               }
               className="w-full h-12 pl-11 pr-10 rounded-full bg-black/[0.06] dark:bg-[#232327] text-[15px] text-neutral-900 dark:text-white placeholder:text-neutral-500 dark:placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-[var(--m3-primary)]/50 transition-shadow"
             />
@@ -757,7 +757,7 @@ setHasMoreRemote(collectedNew.length > 0 || lastHasMore);
                 No local matches for &ldquo;{query.trim()}&rdquo;
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Switch to Online to search the full YouTube Music catalog.
+                Switch to Online to search the full NueTify catalog.
               </p>
             </div>
           ) : (
