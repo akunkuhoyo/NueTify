@@ -300,7 +300,135 @@ const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
   }, []);
 
   
-    const handleSend = useCallback(async () => { const trimmed = draft.trim(); if (!user || !trimmed) return; if (cooldownSec > 0) { setErrorMsg(`Tunggu ${cooldownSec} detik sebelum mengirim pesan lagi.`); return; } setErrorMsg(null); const tempId = 'temp-' + Date.now(); const tempMsg: ChatMessage = { id: tempId,  clientKey: tempId,user_id: user.id, display_name: meStats?.display_name || profile?.display_name || 'Pengguna NueTify', avatar_url: meStats?.avatar_url ?? profile?.avatar_url ?? null, is_developer: meStats?.is_developer ?? isDev, total_plays: meStats?.total_plays ?? 0, total_seconds: meStats?.total_seconds ?? 0, content: trimmed, reply_to_id: replyTarget?.id || null, reply_to_name: replyTarget?.display_name || null, reply_to_content: replyTarget?.content || null, is_pinned: false, created_at: new Date().toISOString(), isNew: true }; const prevLatest = latest; setMessages((prev) => [...prev, tempMsg]); setLatest(tempMsg); setDraft(''); setReplyTarget(null); const until = Date.now() + 10_000; try { localStorage.setItem(COOLDOWN_KEY, String(until)); } catch {} setCooldownSec(10); requestAnimationFrame(() => scrollToBottom(true)}); try { const token = await getAccessToken(); if (!token) { setMessages((prev) => prev.filter((m) => m.id !== tempId)); setLatest(prevLatest); setDraft(trimmed); setErrorMsg('Sesi habis, silakan login ulang'); return; } const res = await fetch('/api/global-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'send', content: trimmed, replyToId: tempMsg.reply_to_id }) }); const data = await res.json().catch(() => ({})); if (data?.blocked === true) { setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...tempMsg, id: 'warn-' + Date.now(), is_system_warning: true, content: 'System mendeteksi kata terlarang.' } : m))); setLatest(prevLatest); try { localStorage.removeItem(COOLDOWN_KEY); } catch {} setCooldownSec(0); return; } if (res.ok && data.message) { setMessages((prev) => { const alreadyHasReal = prev.some((m) => m.id === data.message.id); if (alreadyHasReal) { return prev.filter((m) => m.id !== tempId).map((m) => (m.id === data.message.id ? { ...data.message, clientKey: m.clientKey || tempId } : m)); } return prev.map((m) => (m.id === tempId ? { ...data.message, clientKey: tempId } : m)); }); setLatest((l) => (l?.id === tempId ? data.message : l)); } else { setMessages((prev) => prev.filter((m) => m.id !== tempId)); setLatest(prevLatest); setDraft(trimmed); if (data.retryAfter) setCooldownSec(Number(data.retryAfter)); setErrorMsg(data.error || 'Gagal mengirim pesan'); } } catch { setMessages((prev) => prev.filter((m) => m.id !== tempId)); setLatest(prevLatest); setDraft(trimmed); setErrorMsg('Gagal mengirim pesan'); } }, [draft, user, cooldownSec, isDev, replyTarget, getAccessToken, meStats, profile, latest]);
+  const handleSend = useCallback(async () => {
+    const trimmed = draft.trim();
+    if (!user || !trimmed || sending) return;
+    if (cooldownSec > 0) {
+      setErrorMsg(`Tunggu ${cooldownSec} detik sebelum mengirim pesan lagi.`);
+      return;
+    }
+    setErrorMsg('');
+    const tempId = `temp-${Date.now()}`;
+    const prevLatest = latest;
+    const currentReply = replyTarget;
+    const tempMsg: ChatMessage = {
+      id: tempId,
+      clientKey: tempId,
+      user_id: user.id,
+      display_name: meStats?.display_name || profile?.display_name || 'Pengguna NueTify',
+      avatar_url: meStats?.avatar_url ?? profile?.avatar_url ?? null,
+      is_developer: meStats?.is_developer ?? isDev,
+      total_plays: meStats?.total_plays ?? 0,
+      total_seconds: meStats?.total_seconds ?? 0,
+      content: trimmed,
+      reply_to_id: currentReply?.id || null,
+      reply_to_name: currentReply?.display_name || null,
+      reply_to_content: currentReply ? currentReply.content.slice(0, 140) : null,
+      is_pinned: false,
+      created_at: new Date().toISOString(),
+      isNew: true,
+    };
+
+    setMessages((prev) => [...prev, tempMsg]);
+    setLatest(tempMsg);
+    setDraft('');
+    setReplyTarget(null);
+    const until = Date.now() + 10_000;
+    try {
+      localStorage.setItem(COOLDOWN_KEY, String(until));
+    } catch {}
+    setCooldownSec(10);
+    requestAnimationFrame(() => scrollToBottom(true));
+
+    setSending(true);
+    try {
+      const supabase = getSupabaseClient();
+      const { data: sessData } = (await supabase?.auth.getSession()) || { data: { session: null } };
+      const token = sessData.session?.access_token;
+      if (!token) throw new Error('Sesi login tidak ditemukan.');
+
+      const res = await fetch('/api/global-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: 'send',
+          content: trimmed,
+          replyToId: currentReply?.id || null,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        blocked?: boolean;
+        error?: string;
+        retryAfter?: number;
+        message?: ChatMessage;
+      };
+
+      if (data?.blocked) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId
+              ? {
+                  ...tempMsg,
+                  id: `warn-${Date.now()}`,
+                  is_system_warning: true,
+                  content: 'System mendeteksi kata terlarang.',
+                  isNew: true,
+                }
+              : m
+          )
+        );
+        setLatest(prevLatest);
+        try {
+          localStorage.removeItem(COOLDOWN_KEY);
+        } catch {}
+        setCooldownSec(0);
+        return;
+      }
+
+      if (!res.ok || !data?.message) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setLatest(prevLatest);
+        setDraft(trimmed);
+        if (data?.retryAfter) {
+          setCooldownSec(Number(data.retryAfter));
+        } else {
+          try {
+            localStorage.removeItem(COOLDOWN_KEY);
+          } catch {}
+          setCooldownSec(0);
+        }
+        setErrorMsg(data?.error || 'Gagal mengirim pesan.');
+        return;
+      }
+
+      const realMsg = data.message;
+      setMessages((prev) => {
+        const alreadyHasReal = prev.some((m) => m.id === realMsg.id);
+        if (alreadyHasReal) {
+          return prev
+            .filter((m) => m.id !== tempId)
+            .map((m) => (m.id === realMsg.id ? { ...realMsg, clientKey: m.clientKey || tempId, isNew: false } : m));
+        }
+        return prev.map((m) => (m.id === tempId ? { ...realMsg, clientKey: tempId, isNew: false } : m));
+      });
+      setLatest(realMsg);
+    } catch (err) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setLatest(prevLatest);
+      setDraft(trimmed);
+      try {
+        localStorage.removeItem(COOLDOWN_KEY);
+      } catch {}
+      setCooldownSec(0);
+      setErrorMsg(err instanceof Error ? err.message : 'Gagal mengirim pesan.');
+    } finally {
+      setSending(false);
+    }
+  }, [user, draft, sending, cooldownSec, latest, replyTarget, meStats, profile, isDev, scrollToBottom]);
 
   const handleDelete = useCallback(async (messageId: string) => { if (!user) return; setErrorMsg(null); const prevMessages = messages; const prevPinned = pinned; deletedIdsRef.current.add(messageId); setMessages((prev) => prev.filter((m) => m.id !== messageId)); setPinned((p) => (p?.id === messageId ? null : p)); if (replyTarget?.id === messageId) setReplyTarget(null); try { const token = await getAccessToken(); if (!token) { deletedIdsRef.current.delete(messageId); setMessages(prevMessages); setPinned(prevPinned); return; } const res = await fetch('/api/global-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'delete', messageId }) }); if (!res.ok) { const data = await res.json().catch(() => ({})); deletedIdsRef.current.delete(messageId); setMessages(prevMessages); setPinned(prevPinned); setErrorMsg(data.error || 'Gagal menghapus pesan'); } } catch deletedIdsRef.current.delete(messageId); { setMessages(prevMessages); setPinned(prevPinned); setErrorMsg('Gagal menghapus pesan'); } }, [user, messages, pinned, getAccessToken, replyTarget]);
 
