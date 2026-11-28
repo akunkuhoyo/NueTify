@@ -376,7 +376,7 @@ if (msg.is_system_warning) { return (<div key={msg.clientKey || msg.id } classNa
 
                   return (
                     <div
-                      key=msg.clientKey || msg.id}
+                      key={msg.clientKey || msg.id}
                       id={`chat-msg-${msg.id}`}
                       className={`flex items-start gap-2.5 animate-chat-bubble ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}
                     >
