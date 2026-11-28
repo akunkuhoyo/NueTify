@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
             kind: 'PLAYLIST' as const,
             playlistId: p.playlistId,
             title: p.name,
-            artist: p.artist?.name || 'YouTube Music',
+            artist: p.artist?.name || 'NueTify',
             thumbnail: p.thumbnails[p.thumbnails.length - 1]?.url || '',
           })),
         },
