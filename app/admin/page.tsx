@@ -67,7 +67,7 @@ export default function AdminDashboardPage() {
   const [notifTitle, setNotifTitle] = useState('');
   const [notifBody, setNotifBody] = useState('');
   const [sendingNotif, setSendingNotif] = useState(false);
-  const [notifStatus, setNotifStatus] = useState<string | null>(null);
+  const [notifStatus, setNotifStatus] = useState<string | null>(null); const [chatFilterWords, setChatFilterWords] = useState<string[]>([]); const [newFilterWord, setNewFilterWord] = useState(''); const [savingFilter, setSavingFilter] = useState(false); const [filterFeedback, setFilterFeedback] = useState<string | null>(null);
   const [logs, setLogs] = useState<AuditLogRow[]>([]);
   const [statusMsg, setStatusMsg] = useState('');
 const [broadcastingUpdate, setBroadcastingUpdate] = useState(false);
@@ -98,13 +98,13 @@ const [broadcastNotice, setBroadcastNotice] = useState<string | null>(null);
       maintenance?: { enabled: boolean; message: string };
       users?: AdminUserRow[];
       auditLogs?: AuditLogRow[];
-        notifications?: BroadcastNotificationRow[];
+        notifications?: BroadcastNotificationRow[]; chatFilterWords?: string[];
     };
     setMaintenanceEnabled(Boolean(data.maintenance?.enabled));
     setMaintenanceMsg(data.maintenance?.message || '');
     setUsers(Array.isArray(data.users) ? data.users : []);
     setLogs(Array.isArray(data.auditLogs) ? data.auditLogs : []);
-      setNotifications(Array.isArray(data.notifications) ? data.notifications.slice(0, 5) : []);
+      setNotifications(Array.isArray(data.notifications) ? data.notifications.slice(0, 5) : []); setChatFilterWords(Array.isArray(data.chatFilterWords) ? data.chatFilterWords : []);
     setAuthError('');
     return true;
   }, []);
@@ -212,7 +212,7 @@ setBroadcastNotice('Terjadi kesalahan jaringan saat mengirim broadcast update.')
 } finally {
 setBroadcastingUpdate(false);
 }
-};
+}; const saveChatFilterWords = async (nextWords: string[]) => { if (!accessToken || savingFilter) return; setSavingFilter(true); setFilterFeedback(null); try { const res = await fetch('/api/admin', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ action: 'update_chat_filter', words: nextWords }) }); const json = (await res.json()) as { ok?: boolean; words?: string[]; error?: string }; if (!res.ok || !json.ok) { setFilterFeedback(json.error ?? 'Gagal menyimpan filter kata.'); } else { setChatFilterWords(Array.isArray(json.words) ? json.words : nextWords); setFilterFeedback('Filter kata terlarang berhasil diperbarui.'); } } catch { setFilterFeedback('Terjadi kesalahan jaringan saat menyimpan filter kata.'); } finally { setSavingFilter(false); } }; const handleAddFilterWords = async (e: React.FormEvent) => { e.preventDefault(); const parsed = newFilterWord.split(',').map((w) => w.trim().toLowerCase()).filter((w) => w.length > 0 && w.length <= 40); if (parsed.length === 0) return; const merged = Array.from(new Set([...chatFilterWords, ...parsed])).slice(0, 300); setNewFilterWord(''); await saveChatFilterWords(merged); }; const handleRemoveFilterWord = async (word: string) => { const nextWords = chatFilterWords.filter((w) => w !== word); await saveChatFilterWords(nextWords); };
   const handleSendBroadcastNotification = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!accessToken || sendingNotif) return;
@@ -646,7 +646,7 @@ setBroadcastingUpdate(false);
                 </div>
               )}
             </div>
-          </section>
+          </section> {/* chat filter */} <section className="rounded-3xl bg-[#181818] border border-[#C0C0C0]/15 p-6 space-y-5"><div><h2 className="text-lg font-bold text-white">Filter Kata Terlarang Global Chat</h2><p className="text-xs text-[#A7A7A7]">Tambahkan kata atau frasa yang akan disensor otomatis di Global Chat (pisahkan dengan koma untuk banyak kata).</p></div><form onSubmit={handleAddFilterWords} className="flex flex-col sm:flex-row gap-2"><input type="text" value={newFilterWord} onChange={(e) => setNewFilterWord(e.target.value)} placeholder="Contoh: kata1, kata2, kata3" className="flex-1 rounded-xl bg-[#242424] border border-[#C0C0C0]/20 px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C0C0C0]" /><button type="submit" disabled={savingFilter || !newFilterWord.trim()} className="px-5 py-2 rounded-full text-xs font-bold bg-emerald-500 text-black hover:bg-emerald-400 disabled:opacity-50 transition">{savingFilter ? 'Menyimpan...' : 'Tambah'}</button></form>{filterFeedback && <p className="text-xs text-[#C0C0C0]">{filterFeedback}</p>}<div className="pt-2 border-t border-[#C0C0C0]/15">{chatFilterWords.length === 0 ? <p className="text-xs text-[#737373]">Belum ada kata terlarang yang ditambahkan.</p> : <div className="flex flex-wrap gap-2">{chatFilterWords.map((word) => <span key={word} className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#242424] border border-[#C0C0C0]/20 text-xs text-white"><span>{word}</span><button type="button" disabled={savingFilter} onClick={() => handleRemoveFilterWord(word)} className="text-[#A7A7A7] hover:text-red-400 font-bold leading-none disabled:opacity-50" aria-label={`Hapus ${word}`}>×</button></span>)}</div>}</div></section>
           </>
       )}
         {tab === 'users' && (
