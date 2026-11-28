@@ -84,7 +84,7 @@ export function DetailView() {
         const data = (await res.json()) as RemoteDetailData;
         if (!cancelled) setRemote(data);
       } catch {
-        if (!cancelled) setError('Could not load details from YouTube Music.');
+        if (!cancelled) setError('Could not load details from NueTify.');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -317,7 +317,7 @@ export function DetailView() {
                         );
                         playTrack(userPlaylist.tracks[idx], userPlaylist.tracks);
                       }}
-                      className="h-11 px-5 rounded-full bg-black/[0.06] dark:bg-white/[0.1] text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2 hover:brightness-110 transition-all"
+                      className="h-11 px-5 rounded-full bg-black/[0.06] dark:bg-white/[0.1] text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2 hover:brightness-110 transition-all shrink-0 whitespace-nowrap"
                     >
                       <Shuffle className="w-4 h-4" />
                       <span>Shuffle</span>
@@ -511,11 +511,11 @@ export function DetailView() {
                   sizeHint="lg"
                 />
 
-                <div className="space-y-3 flex-1 min-w-0">
+                <div className="space-y-3 flex-1 min-w-0 w-full">
                   <p className="text-xs font-semibold uppercase tracking-wider text-[var(--m3-primary)]">
                     {remote.kind}
                   </p>
-                  <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-950 dark:text-white leading-tight">
+                  <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-950 dark:text-white leading-tight min-w-0 w-full overflow-hidden">
                     <MarqueeText text={remote.title} />
                   </h1>
                   <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -530,13 +530,13 @@ export function DetailView() {
                     )}
                   </p>
 
-                  <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                  <div className="flex items-center gap-2.5 overflow-x-auto flex-nowrap w-full max-w-full pb-1">
                     {remote.tracks.length > 0 && (
                       <>
                         <button
                           type="button"
                           onClick={() => playTrack(remote.tracks[0], remote.tracks)}
-                          className="h-11 px-6 rounded-full bg-[var(--m3-primary)] text-[var(--m3-on-primary)] text-sm font-semibold flex items-center gap-2 shadow-lg hover:brightness-110 transition-all"
+                          className="h-11 px-6 rounded-full bg-[var(--m3-primary)] text-[var(--m3-on-primary)] text-sm font-semibold flex items-center gap-2 shadow-lg hover:brightness-110 transition-all shrink-0 whitespace-nowrap"
                         >
                           <Play className="w-4 h-4 fill-current" />
                           <span>Play All</span>
@@ -549,7 +549,7 @@ export function DetailView() {
                             );
                             playTrack(remote.tracks[idx], remote.tracks);
                           }}
-                          className="h-11 px-5 rounded-full bg-black/[0.06] dark:bg-white/[0.1] text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2 hover:brightness-110 transition-all"
+                          className="h-11 px-5 rounded-full bg-black/[0.06] dark:bg-white/[0.1] text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2 hover:brightness-110 transition-all shrink-0 whitespace-nowrap"
                         >
                           <Shuffle className="w-4 h-4" />
                           <span>Shuffle</span>
@@ -557,7 +557,7 @@ export function DetailView() {
                         <button
                           type="button"
                           onClick={() => void startRadio(remote.tracks[0])}
-                          className="h-11 px-4 rounded-full bg-black/[0.06] dark:bg-white/[0.1] text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2 hover:text-[var(--m3-primary)] transition-colors"
+                          className="h-11 px-4 rounded-full bg-black/[0.06] dark:bg-white/[0.1] text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2 hover:text-[var(--m3-primary)] transition-colors shrink-0 whitespace-nowrap"
                         >
                           <Radio className="w-4 h-4" />
                           <span>Radio</span>
@@ -577,7 +577,7 @@ export function DetailView() {
                         })
                       }
                       className={cn(
-                        'h-11 px-4 rounded-full text-sm font-semibold flex items-center gap-2 transition-colors',
+                        'h-11 px-4 rounded-full text-sm font-semibold flex items-center gap-2 transition-colors shrink-0 whitespace-nowrap',
                         saved
                           ? 'bg-[var(--m3-primary-container)] text-[var(--m3-on-primary-container)]'
                           : 'bg-black/[0.06] dark:bg-white/[0.1] text-slate-900 dark:text-white'
