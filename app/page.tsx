@@ -17,6 +17,8 @@ import { PlaylistPickerModal } from '@/components/PlaylistPickerModal';
 import { SearchView } from '@/components/SearchView';
 import { SettingsView } from '@/components/SettingsView';
 import { Sidebar } from '@/components/Sidebar';
+import WebLandingPage from '@/components/WebLandingPage';
+import { LoadingSquares } from '@/components/LoadingSquares';
 
 function SonoraShell() {
   const {
@@ -89,6 +91,24 @@ function SonoraShell() {
 }
 
 export default function Page() {
+  const [clientMode, setClientMode] = useState<'checking' | 'android' | 'web'>('checking');
+
+  useEffect(() => {
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+    const hasBridge =
+      typeof window !== 'undefined' &&
+      Boolean((window as unknown as { NueTifyNative?: unknown }).NueTifyNative);
+    setClientMode(ua.includes('NueTifyAndroid') || hasBridge ? 'android' : 'web');
+  }, []);
+
+  if (clientMode === 'checking') {
+    return (<div className="min-h-screen w-full bg-[#08080A] flex items-center justify-center"><LoadingSquares /></div>);
+  }
+
+  if (clientMode === 'web') {
+    return <WebLandingPage />;
+  }
+
   return (
 <AuthProvider>
       <MaintenanceGate>
