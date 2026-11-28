@@ -41,6 +41,7 @@ interface ChatMessage {
   is_pinned: boolean;
   created_at: string;
   clientKey?: string;
+  isNew?: boolean;
 }
 
 function formatListenDuration(totalSec: number): string {
@@ -88,6 +89,10 @@ export function GlobalChatSection() {
 const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
   const [cooldownSec, setCooldownSec] = useState(0);
   const realtimeTimerRef = useRef<number | null>(null);
+  const deletedIdsRef = useRef<Set<string>>(new Set());
+  const hasInitialScrolledRef = useRef(false);
+  const scrollToBottom = useCallback((smooth = false) => { const el = listRef.current; if (!el) return; if (smooth) { el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }); } else { el.scrollTop = el.scrollHeight; } }, []);
+  
   const isDev = Boolean(
     user && (user.id === DEV_UID || (user.email || '').toLowerCase() === DEV_EMAIL)
   );
@@ -108,16 +113,22 @@ const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
       const data = await res.json();
       const incoming: ChatMessage[] = Array.isArray(data.messages) ? data.messages : [];
       setMessages((prev) => {
+        const serverMessages = incoming.filter((m) => !deletedIdsRef.current.has(m.id));
+        const inFlightTemps = prev.filter((m) => m.id.startsWith('temp-'));
+        const matchedTempIds = new Set<string>();
         const prevKeyMap = new Map<string, string>();
         for (const m of prev) {
           if (m.clientKey) prevKeyMap.set(m.id, m.clientKey);
         }
         const localWarnings = prev.filter((m) => m.is_system_warning && !incoming.some((x) => x.id === m.id));
-        const merged = incoming.map((m) => {
-          const existingKey = prevKeyMap.get(m.id);
-          return existingKey ? { ...m, clientKey: existingKey } : m;
+        const merged = serverMessages.map((m) => {
+          const matchingTemp = inFlightTemps.find((t) => !matchedTempIds.has(t.id) && t.user_id === m.user_id && t.content.trim() === m.content.trim());
+          if (matchingTemp) matchedTempIds.add(matchingTemp.id);
+          const existingKey = matchingTemp ? (matchingTemp.clientKey || matchingTemp.id) : prevKeyMap.get(m.id);
+          return existingKey ? { ...m, clientKey: existingKey, isNew: false } : { ...m, isNew: false };
         });
-        return localWarnings.length > 0 ? [...merged, ...localWarnings] : merged;
+        const remainingTemps = inFlightTemps.filter((t) => !matchedTempIds.has(t.id));
+        return [...merged, ...remainingTemps, ...localWarnings];
       });
       setPinned(data.pinned ?? null);
       setLatest(data.latest ?? null);
@@ -144,6 +155,7 @@ const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
           if (payload.eventType === 'INSERT' && payload.new && !(payload.new as ChatMessage).is_deleted) {
             const incoming = payload.new as ChatMessage;
             setMessages((prev) => {
+              if (deletedIdsRef.current.has(incoming.id)) return prev;
               if (prev.some((m) => m.id === incoming.id)) return prev;
               const tempIdx = prev.findIndex(
                 (m) =>
@@ -156,12 +168,12 @@ const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
                 next[tempIdx] = { ...incoming, clientKey: prev[tempIdx].clientKey || prev[tempIdx].id };
                 return next;
               }
-              return [...prev, incoming];
+              return [...prev, { ...incoming, isNew: true }];
             });
             setLatest(incoming);
           } else if (payload.eventType === 'UPDATE' && payload.new) {
             const updated = payload.new as ChatMessage;
-            if (updated.is_deleted) {
+            if (updated.is_deleted || deletedIdsRef.current.has(updated.id)) {
               setMessages((prev) => {
                 const next = prev.filter((m) => m.id !== updated.id);
                 const lastValid = [...next].reverse().find((x) => !x.is_system_warning) || null;
@@ -170,7 +182,7 @@ const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
               });
               setPinned((p) => (p?.id === updated.id ? null : p));
             } else {
-              setMessages((prev) => prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
+              setMessages((prev) => prev.filter((m) => !deletedIdsRef.current.has(m.id)).map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
               if (updated.is_pinned) {
                 setPinned(updated);
               } else {
@@ -211,10 +223,10 @@ const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
       setVpBox(null);
       return;
     }
-
+    let prevVvHeight = vv.height;
     const updateViewport = () => {
-      setVpBox({ height: vv.height, top: vv.offsetTop });
-    };
+      setVpBox({ height: vv.height, top: vv.offsetTop }); if (vv.height < prevVvHeight) { requestAnimationFrame(() => scrollToBottom(false)); window.setTimeout(() => scrollToBottom(false), 150); } prevVvHeight = vv.height;
+    };  
 
     updateViewport();
     vv.addEventListener('resize', updateViewport);
@@ -225,7 +237,7 @@ const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
       vv.removeEventListener('scroll', updateViewport);
       setVpBox(null);
     };
-  }, [open]);
+  }, [open, scrollToBottom]);
 
   useEffect(() => {
     if (!open) return;
@@ -263,7 +275,8 @@ const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
       delete (window as unknown as { __nuetifyCloseGlobalChat?: () => boolean }).__nuetifyCloseGlobalChat;
     };
   }, [open]);
-
+  useEffect(() => { if (!open) { hasInitialScrolledRef.current = false; return; } requestAnimationFrame(() => scrollToBottom(false)); window.setTimeout(() => scrollToBottom(false), 60); }, [open, scrollToBottom]); useEffect(() => { if (open && messages.length > 0 && !hasInitialScrolledRef.current) { hasInitialScrolledRef.current = true; requestAnimationFrame(() => scrollToBottom(false)); } }, [open, messages.length, scrollToBottom]);
+  
   useEffect(() => {
     if (!open) {
       prevCountRef.current = messages.length;
@@ -287,9 +300,9 @@ const COOLDOWN_KEY = 'nuetify_chat_cooldown_until';
   }, []);
 
   
-    const handleSend = useCallback(async () => { const trimmed = draft.trim(); if (!user || !trimmed) return; if (cooldownSec > 0) { setErrorMsg(`Tunggu ${cooldownSec} detik sebelum mengirim pesan lagi.`); return; } setErrorMsg(null); const tempId = 'temp-' + Date.now(); const tempMsg: ChatMessage = { id: tempId,  clientKey: tempId,user_id: user.id, display_name: meStats?.display_name || profile?.display_name || 'Pengguna NueTify', avatar_url: meStats?.avatar_url ?? profile?.avatar_url ?? null, is_developer: meStats?.is_developer ?? isDev, total_plays: meStats?.total_plays ?? 0, total_seconds: meStats?.total_seconds ?? 0, content: trimmed, reply_to_id: replyTarget?.id || null, reply_to_name: replyTarget?.display_name || null, reply_to_content: replyTarget?.content || null, is_pinned: false, created_at: new Date().toISOString() }; const prevLatest = latest; setMessages((prev) => [...prev, tempMsg]); setLatest(tempMsg); setDraft(''); setReplyTarget(null); const until = Date.now() + 10_000; try { localStorage.setItem(COOLDOWN_KEY, String(until)); } catch {} setCooldownSec(10); requestAnimationFrame(() => { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight; }); try { const token = await getAccessToken(); if (!token) { setMessages((prev) => prev.filter((m) => m.id !== tempId)); setLatest(prevLatest); setDraft(trimmed); setErrorMsg('Sesi habis, silakan login ulang'); return; } const res = await fetch('/api/global-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'send', content: trimmed, replyToId: tempMsg.reply_to_id }) }); const data = await res.json().catch(() => ({})); if (data?.blocked === true) { setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...tempMsg, id: 'warn-' + Date.now(), is_system_warning: true, content: 'System mendeteksi kata terlarang.' } : m))); setLatest(prevLatest); try { localStorage.removeItem(COOLDOWN_KEY); } catch {} setCooldownSec(0); return; } if (res.ok && data.message) { setMessages((prev) => { const alreadyHasReal = prev.some((m) => m.id === data.message.id); if (alreadyHasReal) { return prev.filter((m) => m.id !== tempId).map((m) => (m.id === data.message.id ? { ...data.message, clientKey: m.clientKey || tempId } : m)); } return prev.map((m) => (m.id === tempId ? { ...data.message, clientKey: tempId } : m)); }); setLatest((l) => (l?.id === tempId ? data.message : l)); } else { setMessages((prev) => prev.filter((m) => m.id !== tempId)); setLatest(prevLatest); setDraft(trimmed); if (data.retryAfter) setCooldownSec(Number(data.retryAfter)); setErrorMsg(data.error || 'Gagal mengirim pesan'); } } catch { setMessages((prev) => prev.filter((m) => m.id !== tempId)); setLatest(prevLatest); setDraft(trimmed); setErrorMsg('Gagal mengirim pesan'); } }, [draft, user, cooldownSec, isDev, replyTarget, getAccessToken, meStats, profile, latest]);
+    const handleSend = useCallback(async () => { const trimmed = draft.trim(); if (!user || !trimmed) return; if (cooldownSec > 0) { setErrorMsg(`Tunggu ${cooldownSec} detik sebelum mengirim pesan lagi.`); return; } setErrorMsg(null); const tempId = 'temp-' + Date.now(); const tempMsg: ChatMessage = { id: tempId,  clientKey: tempId,user_id: user.id, display_name: meStats?.display_name || profile?.display_name || 'Pengguna NueTify', avatar_url: meStats?.avatar_url ?? profile?.avatar_url ?? null, is_developer: meStats?.is_developer ?? isDev, total_plays: meStats?.total_plays ?? 0, total_seconds: meStats?.total_seconds ?? 0, content: trimmed, reply_to_id: replyTarget?.id || null, reply_to_name: replyTarget?.display_name || null, reply_to_content: replyTarget?.content || null, is_pinned: false, created_at: new Date().toISOString(), isNew: true }; const prevLatest = latest; setMessages((prev) => [...prev, tempMsg]); setLatest(tempMsg); setDraft(''); setReplyTarget(null); const until = Date.now() + 10_000; try { localStorage.setItem(COOLDOWN_KEY, String(until)); } catch {} setCooldownSec(10); requestAnimationFrame(() => scrollToBottom(true)}); try { const token = await getAccessToken(); if (!token) { setMessages((prev) => prev.filter((m) => m.id !== tempId)); setLatest(prevLatest); setDraft(trimmed); setErrorMsg('Sesi habis, silakan login ulang'); return; } const res = await fetch('/api/global-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'send', content: trimmed, replyToId: tempMsg.reply_to_id }) }); const data = await res.json().catch(() => ({})); if (data?.blocked === true) { setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...tempMsg, id: 'warn-' + Date.now(), is_system_warning: true, content: 'System mendeteksi kata terlarang.' } : m))); setLatest(prevLatest); try { localStorage.removeItem(COOLDOWN_KEY); } catch {} setCooldownSec(0); return; } if (res.ok && data.message) { setMessages((prev) => { const alreadyHasReal = prev.some((m) => m.id === data.message.id); if (alreadyHasReal) { return prev.filter((m) => m.id !== tempId).map((m) => (m.id === data.message.id ? { ...data.message, clientKey: m.clientKey || tempId } : m)); } return prev.map((m) => (m.id === tempId ? { ...data.message, clientKey: tempId } : m)); }); setLatest((l) => (l?.id === tempId ? data.message : l)); } else { setMessages((prev) => prev.filter((m) => m.id !== tempId)); setLatest(prevLatest); setDraft(trimmed); if (data.retryAfter) setCooldownSec(Number(data.retryAfter)); setErrorMsg(data.error || 'Gagal mengirim pesan'); } } catch { setMessages((prev) => prev.filter((m) => m.id !== tempId)); setLatest(prevLatest); setDraft(trimmed); setErrorMsg('Gagal mengirim pesan'); } }, [draft, user, cooldownSec, isDev, replyTarget, getAccessToken, meStats, profile, latest]);
 
-  const handleDelete = useCallback(async (messageId: string) => { if (!user) return; setErrorMsg(null); const prevMessages = messages; const prevPinned = pinned; setMessages((prev) => prev.filter((m) => m.id !== messageId)); setPinned((p) => (p?.id === messageId ? null : p)); if (replyTarget?.id === messageId) setReplyTarget(null); try { const token = await getAccessToken(); if (!token) { setMessages(prevMessages); setPinned(prevPinned); return; } const res = await fetch('/api/global-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'delete', messageId }) }); if (!res.ok) { const data = await res.json().catch(() => ({})); setMessages(prevMessages); setPinned(prevPinned); setErrorMsg(data.error || 'Gagal menghapus pesan'); } } catch { setMessages(prevMessages); setPinned(prevPinned); setErrorMsg('Gagal menghapus pesan'); } }, [user, messages, pinned, getAccessToken, replyTarget]);
+  const handleDelete = useCallback(async (messageId: string) => { if (!user) return; setErrorMsg(null); const prevMessages = messages; const prevPinned = pinned; deletedIdsRef.current.add(messageId); setMessages((prev) => prev.filter((m) => m.id !== messageId)); setPinned((p) => (p?.id === messageId ? null : p)); if (replyTarget?.id === messageId) setReplyTarget(null); try { const token = await getAccessToken(); if (!token) { deletedIdsRef.current.delete(messageId); setMessages(prevMessages); setPinned(prevPinned); return; } const res = await fetch('/api/global-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'delete', messageId }) }); if (!res.ok) { const data = await res.json().catch(() => ({})); deletedIdsRef.current.delete(messageId); setMessages(prevMessages); setPinned(prevPinned); setErrorMsg(data.error || 'Gagal menghapus pesan'); } } catch deletedIdsRef.current.delete(messageId); { setMessages(prevMessages); setPinned(prevPinned); setErrorMsg('Gagal menghapus pesan'); } }, [user, messages, pinned, getAccessToken, replyTarget]);
 
   const handleTogglePin = useCallback(
     async (msg: ChatMessage) => { const nextPinned = !msg.is_pinned; if (!isDev) return; setErrorMsg(null); setPinned(nextPinned ? { ...msg, is_pinned: true } : null); setMessages((prev) => prev.map((m) => ({ ...m, is_pinned: nextPinned ? m.id === msg.id : false }))); try { const token = await getAccessToken(); if (!token) { await fetchChat(); return; } const res = await fetch('/api/global-chat', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: 'pin', messageId: msg.id, pinned: nextPinned }) }); if (!res.ok) await fetchChat(); } catch { await fetchChat(); } }, [isDev, getAccessToken, fetchChat]
@@ -378,7 +391,7 @@ if (msg.is_system_warning) { return (<div key={msg.clientKey || msg.id } classNa
                     <div
                       key={msg.clientKey || msg.id}
                       id={`chat-msg-${msg.id}`}
-                      className={`flex items-start gap-2.5 animate-chat-bubble ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}
+                      className={`flex items-start gap-2.5 ${msg.isNew ? 'animate-chat-bubble' : ''} ${isOwn ? 'flex-row-reverse' : 'flex-row'}`}
                     >
                       <div className="shrink-0 pt-0.5">
                         <UserAvatar src={msg.avatar_url} name={msg.display_name} size={36} />
@@ -528,7 +541,7 @@ if (msg.is_system_warning) { return (<div key={msg.clientKey || msg.id } classNa
                     rows={1}
                     maxLength={500}
                     value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
+                    onChange={(e) => setDraft(e.target.value)} onFocus={() => { scrollToBottom(false); window.setTimeout(() => scrollToBottom(false), 160); window.setTimeout(() => scrollToBottom(false), 320); }}
                     onKeyDown={(e) => {
                       if (
                         e.key === 'Enter' &&
