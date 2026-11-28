@@ -146,14 +146,14 @@ export function BroadcastNotificationListener() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed top-4 right-4 z-[9999] max-w-sm rounded-2xl border border-emerald-400/30 bg-slate-900/95 p-4 text-white shadow-2xl backdrop-blur-md"
+      className="fixed top-4 right-4 z-[9999] max-w-sm rounded-2xl border border-white/15 bg-[#0B0B0C]/95 p-4 text-white shadow-[0_14px_40px_rgba(0,0,0,0.65)] backdrop-blur-xl"
     >
       <div className="flex items-start gap-3">
-        <div className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400" />
-        <div className="min-w-0 flex-1">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-black"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg></div>
+        <div className="min-w-0 flex-1"><p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">NUETIFY</p>
           <p className="text-sm font-semibold text-white">{notification.title}</p>
           {notification.body ? (
-            <p className="mt-1 text-xs leading-relaxed text-slate-300">
+            <p className="mt-1 text-xs leading-relaxed text-white/75">
               {notification.body}
             </p>
           ) : null}
@@ -161,7 +161,7 @@ export function BroadcastNotificationListener() {
         <button
           type="button"
           onClick={() => setNotification(null)}
-          className="rounded-lg px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-white"
+          className="rounded-lg px-2 py-1 text-xs text-white/50 hover:bg-white/10 hover:text-white"
           aria-label="Tutup notifikasi"
         >
           &#10005;
