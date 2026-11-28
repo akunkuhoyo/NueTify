@@ -6,6 +6,45 @@ export const dynamic = 'force-dynamic';
 const DEV_UID = 'ebc0b783-4ebd-44b2-89de-990c57cfd297';
 const DEV_EMAIL = 'drevviann@gmail.com';
 const COOLDOWN_MS = 10_000;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function sanitizeChatText(raw: string): string {
+  const stripped = raw.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').trim();
+  const lines = stripped.split(/\r?\n/).slice(0, 6);
+  return lines.join('\n').slice(0, 500).trim();
+}
+
+function normalizeForFilter(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/4/g, 'a')
+    .replace(/3/g, 'e')
+    .replace(/[1!|]/g, 'i')
+    .replace(/0/g, 'o')
+    .replace(/[$5]/g, 's')
+    .replace(/7/g, 't')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function containsForbiddenWord(content: string, words: string[]): boolean {
+  if (!words.length) return false;
+  const norm = normalizeForFilter(content);
+  const compact = norm.replace(/\s+/g, '');
+  for (const raw of words) {
+    const w = normalizeForFilter(raw);
+    if (!w) continue;
+    const wCompact = w.replace(/\s+/g, '');
+    if (w.length <= 3) {
+      const re = new RegExp(`(^|\\s)${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`, 'i');
+      if (re.test(norm)) return true;
+    } else if (norm.includes(w) || (wCompact.length >= 4 && compact.includes(wCompact))) {
+      return true;
+    }
+  }
+  return false;
+}
 
 type ChatRow = {
   id: string;
@@ -81,9 +120,18 @@ function enrichMessage(
   };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const { admin } = getSupabaseClients();
+    const { anon, admin } = getSupabaseClients();
+    const authHeader = req.headers.get('authorization') || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    let meUser: { id: string; email?: string } | null = null;
+    if (token) {
+      const { data: userData } = await anon.auth.getUser(token);
+      if (userData?.user?.id) {
+        meUser = { id: userData.user.id, email: userData.user.email };
+      }
+    }
     const [msgsRes, pinRes] = await Promise.all([
       admin
         .from('global_chat_messages')
@@ -107,6 +155,7 @@ export async function GET() {
     const uidSet = new Set<string>();
     for (const m of rawMessages) if (m.user_id) uidSet.add(m.user_id);
     if (pinnedRow?.user_id) uidSet.add(pinnedRow.user_id);
+    if (meUser?.id) uidSet.add(meUser.id);
     const userIds = Array.from(uidSet);
 
     const profileMap = new Map<string, { display_name?: string | null; avatar_url?: string | null }>();
@@ -140,8 +189,38 @@ export async function GET() {
     const pinned = pinnedRow ? enrichMessage(pinnedRow, profileMap, lbMap, musicMap, overrides) : null;
     const latest = messages.length > 0 ? messages[messages.length - 1] : null;
 
+
+    let me: {
+      user_id: string;
+      display_name: string;
+      avatar_url: string | null;
+      is_developer: boolean;
+      total_plays: number;
+      total_seconds: number;
+    } | null = null;
+    if (meUser?.id) {
+      const p = profileMap.get(meUser.id);
+      const lb = lbMap.get(meUser.id);
+      const ms = musicMap.get(meUser.id);
+      const ov = overrides[meUser.id];
+      const rawName = (p?.display_name || '').trim();
+      const validName = rawName && !rawName.includes('@') && rawName.toLowerCase() !== 'pengguna';
+      const baseSec = Math.max(Number(lb?.total_seconds || 0), Number(ms?.totalSeconds || 0));
+      const basePlays = Math.max(Number(lb?.total_plays || 0), Number(ms?.totalPlays || 0));
+      const total_seconds = typeof ov?.total_seconds === 'number' ? ov.total_seconds : baseSec;
+      const total_plays = typeof ov?.total_plays === 'number' ? ov.total_plays : basePlays;
+      const is_developer = meUser.id === DEV_UID || (meUser.email || '').toLowerCase() === DEV_EMAIL;
+      me = {
+        user_id: meUser.id,
+        display_name: validName ? rawName : 'Pengguna NueTify',
+        avatar_url: (p?.avatar_url || '').trim() || null,
+        is_developer,
+        total_plays,
+        total_seconds,
+      };
+    }
     return NextResponse.json(
-      { messages, pinned, latest },
+      { messages, pinned, latest, me },
       { headers: { 'Cache-Control': 'no-store' } }
     );
   } catch (err) {
@@ -175,7 +254,7 @@ export async function POST(req: NextRequest) {
 
     if (action === 'delete') {
       const messageId = String(body.messageId || '').trim();
-      if (!messageId) return NextResponse.json({ error: 'ID pesan wajib diisi.' }, { status: 400 });
+      if (!messageId || !UUID_RE.test(messageId)) return NextResponse.json({ error: 'ID pesan wajib diisi.' }, { status: 400 });
       const { data: msg } = await admin
         .from('global_chat_messages')
         .select('id, user_id')
@@ -197,7 +276,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Hanya developer yang dapat menyematkan pesan.' }, { status: 403 });
       }
       const messageId = String(body.messageId || '').trim();
-      if (!messageId) return NextResponse.json({ error: 'ID pesan wajib diisi.' }, { status: 400 });
+      if (!messageId || !UUID_RE.test(messageId)) return NextResponse.json({ error: 'ID pesan wajib diisi.' }, { status: 400 });
       const nextPinned = Boolean(body.pinned);
       if (nextPinned) {
         await admin.from('global_chat_messages').update({ is_pinned: false }).eq('is_pinned', true);
@@ -212,14 +291,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, messageId, pinned: nextPinned });
     }
 
-    const content = String(body.content || '').trim();
+    const content = sanitizeChatText(String(body.content || '').trim());
     if (!content) return NextResponse.json({ error: 'Pesan tidak boleh kosong.' }, { status: 400 });
     if (content.length > 500) {
       return NextResponse.json({ error: 'Pesan maksimal 500 karakter.' }, { status: 400 });
     }
     const replyToId = body.replyToId ? String(body.replyToId).trim() : null;
 
-    const [banRes, lastMsgRes, profRes, lbRes, musicRes, cfgRes, replyRes] = await Promise.all([
+    const [banRes, lastMsgRes, profRes, lbRes, musicRes, cfgRes, filterRes, replyRes] = await Promise.all([
       admin.from('user_bans').select('is_active, banned_until').eq('user_id', u.id).eq('is_active', true).maybeSingle(),
       admin
         .from('global_chat_messages')
@@ -232,7 +311,8 @@ export async function POST(req: NextRequest) {
       admin.from('listening_leaderboard').select('total_seconds, total_plays').eq('user_id', u.id).maybeSingle(),
       admin.from('user_music_data').select('data').eq('user_id', u.id).maybeSingle(),
       admin.from('app_config').select('value').eq('key', 'leaderboard_overrides').maybeSingle(),
-      replyToId
+      admin.from('app_config').select('value').eq('key', 'global_chat_filter').maybeSingle(),
+      replyToId && UUID_RE.test(replyToId)
         ? admin
             .from('global_chat_messages')
             .select('id, display_name, content')
@@ -260,6 +340,19 @@ export async function POST(req: NextRequest) {
           { status: 429 }
         );
       }
+    }
+
+    const rawFilterVal = (filterRes.data as { value?: unknown } | null)?.value;
+    const filterWords: string[] = Array.isArray(rawFilterVal)
+      ? rawFilterVal.map((w) => String(w || '').trim()).filter(Boolean)
+      : Array.isArray((rawFilterVal as { words?: unknown[] } | null)?.words)
+        ? ((rawFilterVal as { words: unknown[] }).words).map((w) => String(w || '').trim()).filter(Boolean)
+        : [];
+    if (containsForbiddenWord(content, filterWords)) {
+      return NextResponse.json(
+        { ok: false, blocked: true, error: 'System mendeteksi kata terlarang.' },
+        { status: 200 }
+      );
     }
 
     const meta = (u.user_metadata || {}) as Record<string, unknown>;
