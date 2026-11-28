@@ -167,12 +167,12 @@ export function LibraryView() {
       if (data.tracks && data.tracks.length > 0) {
         createPlaylist(
           data.title || `Imported (${pid.slice(0, 8)})`,
-          'Imported from YouTube Music',
+          'Imported to NueTify',
           data.tracks.slice(0, 100)
         );
         setImportInput('');
       } else {
-        showToast('No tracks found in that YouTube Music playlist');
+        showToast('No tracks found in that playlist');
       }
     } catch {
       showToast('Could not import playlist. Check the URL or ID.');
@@ -458,7 +458,7 @@ export function LibraryView() {
                 value={importInput}
                 onChange={(e) => setImportInput(e.target.value)}
                 placeholder="Import YTM Playlist URL or ID..."
-                aria-label="YouTube Music playlist URL or ID"
+                aria-label="NueTify playlist URL or ID"
                 className="flex-1 h-10 px-3.5 rounded-2xl bg-black/5 dark:bg-white/[0.06] text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--m3-ring)]"
               />
               <button
