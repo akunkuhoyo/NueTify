@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AccountSettingsCard } from './AccountSettingsCard';
 import {
   AlertTriangle,
   AlignCenter,
   AlignLeft,
   AlignRight, Award,
-  Check,
+  ArrowLeft, FileText, ShieldCheck, Check,
   Database,
   Download,
   ExternalLink,
@@ -295,8 +296,10 @@ export function SettingsView() {
   const [filterText, setFilterText] = useState('');
   const [cookieDraft, setCookieDraft] = useState(settings.ytCookie);
   const [showCookie, setShowCookie] = useState(false);
+  const [legalDoc, setLegalDoc] = useState<'privacy' | 'terms' | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  useEffect(() => { if (!legalDoc) return; const prevHtmlOverflow = document.documentElement.style.overflow; const prevBodyOverflow = document.body.style.overflow; document.documentElement.style.overflow = 'hidden'; document.body.style.overflow = 'hidden'; const w = window as unknown as { __nuetifyCloseLegal?: () => boolean }; w.__nuetifyCloseLegal = () => { setLegalDoc(null); return true; }; window.history.pushState({ nuetifyLegal: legalDoc }, ''); const handlePopState = () => setLegalDoc(null); window.addEventListener('popstate', handlePopState); return () => { document.documentElement.style.overflow = prevHtmlOverflow; document.body.style.overflow = prevBodyOverflow; delete w.__nuetifyCloseLegal; window.removeEventListener('popstate', handlePopState); }; }, [legalDoc]);
   const normalizedFilter = filterText.trim().toLowerCase();
 
   const matchesSearch = (keywords: string) => {
@@ -1887,9 +1890,11 @@ export function SettingsView() {
                   <p className="text-[13px] font-semibold mt-0.5">© 2026 PT Nueva Group</p>
                 </div>
               </div>
-            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-2 border-t border-white/10"><button type="button" onClick={() => setLegalDoc('privacy')} className="flex items-center justify-center gap-2 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-3 text-[13px] font-semibold transition-colors"><ShieldCheck className="w-4 h-4 text-[var(--m3-primary)] shrink-0" /><span>Kebijakan Privasi</span></button><button type="button" onClick={() => setLegalDoc('terms')} className="flex items-center justify-center gap-2 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-3 text-[13px] font-semibold transition-colors"><FileText className="w-4 h-4 text-[var(--m3-primary)] shrink-0" /><span>Syarat &amp; Ketentuan</span></button></div>
+          </div>
         </section>
       )}
+  {legalDoc && typeof document !== 'undefined' && createPortal(<div className="fixed inset-0 z-[120] bg-[#121212] flex flex-col overscroll-none"><div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#181818]"><div className="flex items-center gap-3 min-w-0"><button type="button" onClick={() => setLegalDoc(null)} aria-label="Kembali" className="p-2 -ml-2 rounded-full hover:bg-white/10 transition-colors"><ArrowLeft className="w-5 h-5" /></button><h2 className="text-[15px] font-bold truncate">{legalDoc === 'privacy' ? 'Kebijakan Privasi' : 'Syarat & Ketentuan'}</h2></div><button type="button" onClick={() => setLegalDoc(legalDoc === 'privacy' ? 'terms' : 'privacy')} className="px-3 py-1.5 rounded-full text-[12px] font-semibold bg-white/10 hover:bg-white/15 border border-white/10 shrink-0 transition-colors">{legalDoc === 'privacy' ? 'Syarat & Ketentuan' : 'Kebijakan Privasi'}</button></div><iframe src={legalDoc === 'privacy' ? '/privacy' : '/terms'} title={legalDoc === 'privacy' ? 'Kebijakan Privasi NueTify' : 'Syarat & Ketentuan NueTify'} className="w-full flex-1 border-0 bg-[#121212]" /></div>, document.body)}
     </div>
   );
 }
