@@ -77,6 +77,7 @@ export function GlobalChatSection() {
   const [latest, setLatest] = useState<ChatMessage | null>(null);
   const [draft, setDraft] = useState('');
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ChatMessage | null>(null);
   const [sending, setSending] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -641,7 +642,7 @@ if (msg.is_system_warning) { return (<div key={msg.clientKey || msg.id } classNa
                           {canDelete && (
                             <button
                               type="button"
-                              onClick={() => handleDelete(msg.id)}
+                              onClick={() => setDeleteTarget(msg)}
                               disabled={busyId === msg.id}
                               className="inline-flex items-center gap-1 text-[11px] text-red-400/75 hover:text-red-400 transition-colors disabled:opacity-40"
                             >
@@ -745,6 +746,47 @@ if (msg.is_system_warning) { return (<div key={msg.clientKey || msg.id } classNa
                 </p>
               )}
             </div>
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-[130] bg-black/75 flex items-center justify-center p-5"
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-3xl bg-[#181818] border border-white/15 p-5 space-y-4"
+          >
+            <div className="space-y-1.5">
+              <h3 className="text-base font-bold text-white">Hapus Pesan?</h3>
+              <p className="text-xs leading-relaxed text-white/65">
+                Pesan ini akan dihapus untuk semua orang di Global Chat dan tidak dapat dikembalikan.
+              </p>
+              <div className="mt-2 rounded-xl bg-white/[0.04] border border-white/10 px-3 py-2 text-xs text-white/80 line-clamp-2 break-words">
+                {deleteTarget.content}
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 rounded-full text-xs font-semibold bg-white/10 text-white hover:bg-white/15 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const id = deleteTarget.id;
+                  setDeleteTarget(null);
+                  void handleDelete(id);
+                }}
+                className="px-4 py-2 rounded-full text-xs font-semibold bg-rose-600 text-white hover:bg-rose-500 transition-colors"
+              >
+                Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
           </div>,
           document.body
         )
